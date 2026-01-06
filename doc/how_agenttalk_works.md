@@ -1,0 +1,2951 @@
+# AgentTalk 系统工作原理详解
+
+## 文档信息
+
+- **文档名称**：AgentTalk 系统工作原理
+- **版本**：v1.0 Final
+- **创建日期**：2025-01-05
+- **目的**：详细说明AgentTalk系统是如何工作的
+
+---
+
+## 目录
+
+1. [系统概述](#1-系统概述)
+2. [核心概念](#2-核心概念)
+3. [系统架构](#3-系统架构)
+4. [工作流程](#4-工作流程)
+5. [关键机制详解](#5-关键机制详解)
+6. [完整示例：本地知识库导览机器人](#6-完整示例本地知识库导览机器人)
+7. [系统特性](#7-系统特性)
+8. [设计原则](#8-设计原则)
+
+---
+
+## 1. 系统概述
+
+### 1.1 什么是AgentTalk？
+
+**AgentTalk** 是一个通用的多AI智能体协作平台。
+
+**核心思想**：
+> 你只需要告诉系统"你想要什么"，系统会自动组织多个专业AI智能体协同工作，最终完成任务。
+
+**类比**：
+- 就像你有一个虚拟公司
+- 里面有各种专业人才（Excel专家、爬虫专家、文档专家等）
+- 你只需要向"总经理"下达任务
+- 总经理会自动组织团队、分解任务、监控进度
+- 最终交付完整的成果
+
+### 1.2 系统能做什么？
+
+**AgentTalk可以处理任何类型的任务**，包括但不限于：
+
+- 📊 **数据处理**：Excel/CSV文件处理、数据清洗、报表生成
+- 🕷️ **数据收集**：网页爬虫、API调用、数据抓取
+- 💻 **软件开发**：功能开发、代码编写、测试验证
+- 📝 **文档编写**：需求文档、技术文档、用户手册
+- 🎨 **设计工作**：UI设计、海报设计、logo设计
+- 📹 **媒体处理**：视频剪辑、音频转写、格式转换
+- 🤖 **AI应用**：聊天机器人、知识库问答、智能助手
+
+**关键特点**：所有这些任务，用户只需要描述需求，系统自动完成。
+
+### 1.3 为什么需要AgentTalk？
+
+**传统方式的痛点**：
+
+❌ **单一工具不够专业**
+- 一个AI工具懂编程，但不懂数据分析
+- 另一个工具懂Excel，但不懂需求分析
+- 你需要切换多个工具，手动协调
+
+❌ **任务分解困难**
+- 复杂任务不知道从何入手
+- 不知道该找谁（哪个工具）解决什么问题
+- 容易遗漏重要环节
+
+❌ **进度无法追踪**
+- 不知道任务做到哪了
+- 不知道问题出在哪个环节
+- 无法提前发现风险
+
+✅ **AgentTalk的解决方案**：
+- **专业分工**：50-100个专业AI专家，每个都是领域专家
+- **自动协调**：系统自动组织团队、分解任务
+- **全程可视**：随时查看谁在做什么、讨论了什么、产出了什么
+
+---
+
+## 2. 核心概念
+
+### 2.1 Agent（智能体）
+
+**什么是Agent？**
+
+Agent是一个**AI智能体**，类似于一个虚拟的专业人才。
+
+**Agent的组成**：
+
+```
+Agent = 提示词 + 技能 + 业务领域
+
+├── 提示词（Prompt）
+│   ├── 角色定位（你是谁）
+│   ├── 专业知识（你知道什么）
+│   ├── 工作方式（你如何思考）
+│   └── 沟通风格（你如何表达）
+│
+├── 技能（Skills）
+│   ├── Claude Code技能（可执行的工具）
+│   └── 专业技能（领域特定的能力）
+│
+└── 业务领域
+    └── 你能独立解决的一类问题
+```
+
+**Agent示例**：
+
+| Agent | 提示词内容 | 技能 | 业务领域 |
+|-------|-----------|------|---------|
+| **Excel专家** | 你是Excel处理专家，精通数据清洗、公式计算、图表生成 | openpyxl, pandas, 数据分析 | Excel文件处理 |
+| **爬虫专家** | 你是网页数据抓取专家，精通反爬虫、数据解析 | BeautifulSoup, Scrapy, Selenium | 网页数据获取 |
+| **文档专家** | 你是技术文档专家，精通需求分析、文档结构 | Markdown, 文档写作, 结构化表达 | 文档编写 |
+| **总经理** | 你是总经理，负责理解任务、组建团队、协调资源 | 任务分配、会议召集、能力边界识别 | 任务规划和团队协调 |
+
+**关键点**：
+- 所有Agent在技术上是平等的（都是独立的程序实例）
+- 区别在于提示词和技能不同
+- 有的Agent有"管理"能力（如总经理），有的没有
+
+### 2.2 技能（Skills）
+
+**什么是技能？**
+
+技能 = **可执行的能力**，类似于现实中的"工具"或"资格证书"。
+
+**技能的类型**：
+
+1. **Claude Code技能**：具体的工具调用能力
+   - 例如：`file_read`（读取文件）、`web_search`（网络搜索）
+   - 这些是系统内置的可执行工具
+
+2. **领域专业技能**：专业知识的应用能力
+   - 例如：Excel数据处理、Python编程、UI设计
+   - 这些通过提示词定义，通过LLM实现
+
+3. **管理技能**：特殊的协调和组织能力
+   - 例如：`召集会议`、`分配任务`、`监控进度`
+   - 这些赋予Agent特殊的权限
+
+**技能与权限的关系**：
+
+```
+拥有技能 = 拥有对应的权限
+
+示例：
+├── 召集会议技能 → 可以发起会议、邀请参与者
+├── 分配任务技能 → 可以向其他Agent下达任务
+├── 分配无标签任务技能 → 可以分配任何类型的任务
+└── 监控进度技能 → 可以询问其他Agent的工作状态
+```
+
+**关键点**：
+- 技能是固定的，不会动态增加
+- 拥有某个技能 = 拥有对应的权限
+- 技能决定了Agent能做什么、不能做什么
+
+### 2.3 标签（Tags）
+
+**什么是标签？**
+
+标签 = **任务的分类标记**，用于将任务与Agent匹配。
+
+**预定义的标签库**：
+
+```
+技术、产品、设计、测试、文档、部署、运营、市场、销售、客服...
+```
+
+**标签的作用**：
+
+1. **任务分类**：标记任务属于哪个领域
+2. **Agent注册**：Agent声明自己能处理哪些标签的任务
+3. **权限控制**：经理只能分配特定标签的任务
+
+**标签与Agent的关系**：
+
+```json
+// 技术经理的配置
+{
+  "agent_id": "agent_002_tech_manager",
+  "can_assign_tags": ["技术", "后端", "前端", "数据库"],
+  "can_handle_tags": ["技术"]  // 自己也能处理技术任务
+}
+
+// Excel专家的配置
+{
+  "agent_id": "agent_101_excel_expert",
+  "can_assign_tags": [],  // 不能分配任务
+  "can_handle_tags": ["excel", "数据处理", "报表"]
+}
+```
+
+**标签的匹配规则**：
+
+```
+任务带有标签"技术" → 可以分配给能处理"技术"标签的Agent
+任务带有标签["技术", "数据库"] → 可以分配给能处理任一标签的Agent
+任务没有标签 → 只能由总经理分配
+```
+
+### 2.4 文件通信
+
+**什么是文件通信？**
+
+Agent之间通过**文件系统**交换消息，而不是通过网络API或函数调用。
+
+**Agent的目录结构**：
+
+```
+agents/
+  └── agent_001_general_manager/
+      ├── profile/
+      │   ├── config.json          # Agent配置
+      │   ├── prompt.md            # 提示词
+      │   └── skills/              # 技能目录
+      ├── inbox/                   # 收件箱（新消息）
+      ├── inbox_processed/         # 已收件（已处理的消息）
+      ├── sent/                    # 发件箱（已发送的消息）
+      └── state/                   # Agent状态
+          ├── current_status.json
+          └── task_list.json
+```
+
+**通信流程**：
+
+```
+Agent A 发送消息给 Agent B：
+
+1. Agent A 生成消息文件
+2. Agent A 将文件放入 Agent B 的 inbox/
+3. Agent B 轮询检查 inbox/（每10秒）
+4. Agent B 发现新消息
+5. Agent B 处理消息
+6. Agent B 将消息移到 inbox_processed/
+7. Agent B 生成响应文件
+8. Agent B 将响应放入 Agent A 的 inbox/
+```
+
+**消息文件格式**：
+
+```json
+{
+  "message_id": "msg_20250105_123456_001",
+  "from_agent": "agent_001_general_manager",
+  "to_agent": "agent_002_tech_manager",
+  "message_type": "TASK_ASSIGNMENT",
+  "subject": "开发Excel数据导入功能",
+  "body": "请组织技术团队完成这个任务",
+  "timestamp": "2025-01-05T12:34:56Z",
+  "priority": "HIGH",
+  "deadline": "2025-01-10T18:00:00Z",
+  "tags": ["技术"],
+  "attachments": []
+}
+```
+
+**消息类型**：
+
+| 消息类型 | 说明 | 谁能发送 |
+|---------|------|---------|
+| `TASK_ASSIGNMENT` | 任务分配 | 拥有"分配任务"技能的Agent |
+| `HELP_REQUEST` | 请求协助 | 任何Agent |
+| `MEETING_INVITATION` | 会议邀请 | 拥有"召集会议"技能的Agent |
+| `STATUS_REQUEST` | 状态问询 | 拥有"监控进度"技能的Agent |
+| `STATUS_UPDATE` | 状态更新 | 任何Agent |
+| `MEETING_RESPONSE` | 会议响应 | 被邀请的Agent |
+
+**为什么使用文件通信？**
+
+1. **简单可靠**：文件系统是通用的，不需要复杂的网络配置
+2. **异步友好**：Agent不需要同时在线，可以离线参与
+3. **可追溯**：所有消息都保存在文件中，便于调试和审计
+4. **解耦合**：Agent之间不直接依赖，便于扩展
+
+---
+
+## 3. 系统架构
+
+### 3.1 Agent角色层级
+
+**虽然所有Agent在技术上平等，但根据技能不同，形成自然的层级**：
+
+```
+Level 1: 总经理层
+└── 总经理（唯一能分配无标签任务的Agent）
+
+Level 2: 经理层
+├── 项目经理（负责项目标签）
+├── 技术经理（负责技术标签）
+├── 产品经理（负责产品标签）
+├── 设计经理（负责设计标签）
+└── ...其他经理
+
+Level 3: 主管层（可选）
+├── 后端主管（负责后端子领域）
+├── 前端主管（负责前端子领域）
+└── ...其他主管
+
+Level 4: 专家层
+├── Excel专家
+├── 爬虫专家
+├── Python专家
+├── 数据库专家
+├── 文档专家
+└── ...其他专家（50-100个）
+```
+
+**层级不是固定的**：
+- 简单任务可能只有2层：总经理 → 专家
+- 复杂任务可能有5层：总经理 → 项目经理 → 技术经理 → 后端主管 → Python专家
+- 层级深度根据任务动态调整
+
+### 3.2 权限系统
+
+**基于技能的权限**：
+
+| 技能 | 权限 | 拥有者 |
+|------|------|--------|
+| `召集会议` | 可以发起会议、邀请参与者 | 总经理、所有经理、所有主管 |
+| `分配无标签任务` | 可以分配任何类型的任务 | 仅总经理 |
+| `分配特定标签任务` | 可以分配特定标签的任务 | 经理（对应标签）、主管（对应标签） |
+| `监控进度` | 可以询问其他Agent的状态 | 项目经理、部分经理 |
+| `执行任务` | 可以执行分配的任务 | 所有Agent |
+
+**权限示例**：
+
+```
+场景1：总经理分配任务
+✅ 总经理能分配任何任务（无标签、技术、产品、设计...）
+
+场景2：技术经理分配任务
+✅ 技术经理能分配"技术"标签的任务
+❌ 技术经理不能分配"产品"标签的任务
+
+场景3：专家分配任务
+❌ Excel专家不能分配任务（没有分配技能）
+
+场景4：专家请求协助
+✅ Excel专家可以发送HELP_REQUEST（不需要分配技能）
+```
+
+### 3.3 系统模块
+
+**AgentTalk系统由7个核心模块组成**：
+
+#### 模块1：Agent注册系统
+
+**功能**：
+- 管理所有Agent的元数据
+- 维护Agent的能力边界
+- 处理Agent上线/下线
+
+**数据结构**：
+```json
+{
+  "agents": [
+    {
+      "agent_id": "agent_001_general_manager",
+      "name": "总经理",
+      "role": "manager",
+      "level": 1,
+      "skills": ["分配无标签任务", "召集会议", "了解所有Agent能力"],
+      "can_assign_tags": [],  // 空表示可以分配任何标签
+      "can_handle_tags": [],
+      "status": "ACTIVE"
+    },
+    {
+      "agent_id": "agent_002_tech_manager",
+      "name": "技术经理",
+      "role": "manager",
+      "level": 2,
+      "skills": ["分配技术任务", "召集会议", "监控进度"],
+      "can_assign_tags": ["技术", "后端", "前端"],
+      "can_handle_tags": ["技术"],
+      "status": "ACTIVE"
+    },
+    {
+      "agent_id": "agent_101_excel_expert",
+      "name": "Excel专家",
+      "role": "expert",
+      "level": 4,
+      "skills": ["Excel处理", "数据分析", "报表生成"],
+      "can_assign_tags": [],
+      "can_handle_tags": ["excel", "数据处理", "报表"],
+      "status": "ACTIVE"
+    }
+  ]
+}
+```
+
+#### 模块2：消息路由器
+
+**功能**：
+- 处理Agent之间的消息传递
+- 维护消息队列
+- 确保消息送达
+
+**工作流程**：
+```
+1. Agent A 生成消息
+2. 消息路由器验证消息格式
+3. 消息路由器将消息写入 Agent B 的 inbox/
+4. 消息路由器记录发送日志
+5. Agent B 轮询发现消息
+6. Agent B 处理消息
+7. Agent B 发送响应
+```
+
+#### 模块3：会议协调器
+
+**功能**：
+- 发送会议邀请
+- 收集Agent输入
+- 协调LLM多轮对话
+- 生成会议纪要和任务分配清单
+
+**会议流程**：
+```
+1. 召集者发送会议邀请
+2. 被邀请的Agent准备输入
+3. 会议协调器收集所有输入
+4. LLM进行多轮协商（每轮10秒-几小时）
+5. 达成共识后，生成会议纪要
+6. 生成任务分配清单
+7. 分发任务给对应的Agent
+```
+
+#### 模块4：任务分解器
+
+**功能**：
+- 辅助Agent进行任务分解
+- 匹配Agent能力和任务需求
+- 维护任务依赖关系
+
+**工作流程**：
+```
+1. 接收任务需求
+2. LLM分析任务复杂度
+3. 识别需要的专业领域
+4. 匹配对应的Agent
+5. 生成子任务列表
+6. 确定任务依赖关系
+```
+
+#### 模块5：进度监控系统
+
+**功能**：
+- 定时问询Agent状态
+- 汇总进度信息
+- 生成进度报告
+- 检测超时和阻塞
+
+**监控流程**：
+```
+1. 项目经理定时触发（如每2小时）
+2. 向所有正在执行任务的Agent发送STATUS_REQUEST
+3. Agent返回STATUS_UPDATE
+4. 项目经理汇总进度
+5. 生成进度报告
+6. 发送给总经理和用户
+```
+
+#### 模块6：Agent执行器
+
+**功能**：
+- 每个Agent的执行循环
+- 收件箱轮询
+- 消息处理
+- LLM调用
+- 技能执行
+
+**执行流程**：
+```python
+while agent_is_running:
+    # 1. 检查收件箱
+    new_messages = check_inbox()
+
+    if new_messages:
+        # 2. 处理每条消息
+        for message in new_messages:
+            # 3. 根据消息类型处理
+            if message.type == "TASK_ASSIGNMENT":
+                handle_task_assignment(message)
+            elif message.type == "HELP_REQUEST":
+                handle_help_request(message)
+            elif message.type == "STATUS_REQUEST":
+                handle_status_request(message)
+            elif message.type == "MEETING_INVITATION":
+                handle_meeting_invitation(message)
+
+            # 4. 将消息移到已处理
+            move_to_processed(message)
+
+    # 5. 休眠10秒
+    sleep(10)
+```
+
+#### 模块7：可视化仪表板
+
+**功能**：
+- Agent状态监控
+- 消息流追踪
+- 任务进度可视化
+- 会议回放
+- 系统健康度
+
+**界面元素**：
+- Agent层级树状图
+- 任务进度条
+- 消息流时间线
+- 会议记录查看器
+- 实时日志
+
+---
+
+## 4. 工作流程
+
+### 4.1 端到端流程概述
+
+```
+用户提交任务
+    ↓
+【阶段1：任务接收】
+总经理接收任务 → 理解需求 → 确定所需专家
+    ↓
+【阶段2：任务规划】
+总经理召集会议 → 经理们参与讨论 → 制定计划
+    ↓
+【阶段3：任务分配】
+总经理分配任务给经理 → 经理分配任务给专家
+    ↓
+【阶段4：任务执行】
+专家执行任务 → 遇到问题发送求助 → 经理协调
+    ↓
+【阶段5：进度监控】
+项目经理定时问询 → 汇总进度 → 生成报告
+    ↓
+【阶段6：产出交付】
+所有子任务完成 → 总经理汇总 → 交付给用户
+```
+
+### 4.2 详细流程分解
+
+#### 阶段1：任务接收
+
+**触发条件**：
+- 用户在`user_tasks/inbox/`中放置任务文件
+
+**任务文件格式**：
+```json
+{
+  "task_id": "user_task_001",
+  "title": "开发一个本地知识库导览机器人",
+  "description": "用户可以通过自然语言查询本地文档，获得准确回答",
+  "required_input": {
+    "user_documents": "本地Markdown/PDF文档",
+    "user_query": "用户的自然语言问题"
+  },
+  "expected_output": {
+    "query_result": "准确的问题回答",
+    "source_reference": "引用的文档来源"
+  },
+  "priority": "HIGH",
+  "deadline": "2025-01-15T18:00:00Z"
+}
+```
+
+**总经理的处理流程**：
+
+```
+1. 总经理轮询检查 user_tasks/inbox/
+2. 发现新任务 user_task_001
+3. LLM分析任务：
+   - 任务类型：产品 + 技术
+   - 需要的专家：产品经理、技术经理、文档专家、开发专家
+   - 任务复杂度：高（需要5层层级）
+4. 总经理决定：召集会议讨论
+```
+
+#### 阶段2：任务规划（会议）
+
+**会议召集**：
+
+```json
+// 总经理发送会议邀请
+{
+  "message_type": "MEETING_INVITATION",
+  "from_agent": "agent_001_general_manager",
+  "to_agent": ["agent_002_project_manager", "agent_003_tech_manager", "agent_004_product_manager"],
+  "meeting_subject": "本地知识库导览机器人 - 项目规划会议",
+  "meeting_agenda": [
+    "1. 理解用户需求",
+    "2. 确定技术方案",
+    "3. 分解任务和分工",
+    "4. 制定时间计划"
+  ],
+  "deadline": "2025-01-06T12:00:00Z"
+}
+```
+
+**多轮LLM协商**：
+
+```
+【第1轮】总经理：
+"用户需要一个本地知识库导览机器人，可以通过自然语言查询文档。各位有什么建议？"
+
+【第2轮】产品经理（10秒后）：
+"从产品角度，核心功能包括：
+1. 文档导入（支持PDF/MD/TXT）
+2. 向量检索（语义搜索）
+3. 问答生成（基于上下文）
+4. 来源引用（可信度）
+目标用户：研究人员、律师、医生等需要处理大量文档的人"
+
+【第3轮】技术经理（20秒后）：
+"技术方案建议：
+1. 文档处理：Python专家（PyPDF2, unstructured）
+2. 向量数据库：向量数据库专家
+3. LLM调用：LLM集成专家
+4. Web界面：前端专家
+技术栈：Python + LangChain + ChromaDB + Streamlit"
+
+【第4轮】项目经理（30秒后）：
+"建议分3个阶段：
+Phase 1: MVP（2周） - 基础问答功能
+Phase 2: 优化（1周） - 向量检索优化
+Phase 3: 完善（1周） - Web界面和引用"
+
+【第5轮】总经理：
+"同意大家的方案。任务分配如下：
+1. 产品经理：编写需求文档（1天）
+2. 技术经理：技术架构设计（1天）
+3. 向量数据库专家：向量检索实现（3天）
+4. Python专家：文档处理和LLM集成（3天）
+5. 前端专家：Web界面开发（2天）
+6. 测试专家：功能测试（1天）
+
+总周期：2周
+项目经理负责整体协调和进度监控"
+```
+
+**会议产出**：
+
+```json
+{
+  "meeting_id": "meeting_001",
+  "outcome": "APPROVED",
+  "task_assignments": [
+    {
+      "task_id": "task_001",
+      "assigned_to": "agent_004_product_manager",
+      "title": "编写需求文档",
+      "input": {"user_requirements": "本地知识库导览机器人"},
+      "output": {"requirement_doc": "详细需求文档（Markdown格式）"},
+      "tags": ["产品"],
+      "deadline": "2025-01-06T18:00:00Z"
+    },
+    {
+      "task_id": "task_002",
+      "assigned_to": "agent_003_tech_manager",
+      "title": "技术架构设计",
+      "input": {"requirement_doc": "来自task_001"},
+      "output": {"architecture_doc": "架构设计文档"},
+      "tags": ["技术"],
+      "deadline": "2025-01-06T18:00:00Z"
+    },
+    // ... 更多任务
+  ]
+}
+```
+
+#### 阶段3：任务分配
+
+**总经理向经理分配任务**：
+
+```
+总经理 → 产品经理：task_001（需求文档）
+总经理 → 技术经理：task_002（架构设计）
+总经理 → 项目经理：任务 - "监控整个项目进度"
+```
+
+**经理向专家分配任务**：
+
+```
+技术经理收到 task_002 后：
+1. 技术经理分析：需要更多专家
+2. 技术经理召集会议（技术标签）
+3. 参会者：向量数据库专家、Python专家、前端专家
+4. 会议产出：详细的技术任务分配
+```
+
+**分配细节**：
+
+```json
+// 技术经理 → 向量数据库专家
+{
+  "message_type": "TASK_ASSIGNMENT",
+  "from_agent": "agent_003_tech_manager",
+  "to_agent": "agent_201_vector_db_expert",
+  "task": {
+    "task_id": "task_002_01",
+    "title": "实现向量检索功能",
+    "input": {
+      "documents": "本地文档集合",
+      "query": "用户查询"
+    },
+    "output": {
+      "vector_index": "ChromaDB向量索引",
+      "search_function": "语义搜索函数"
+    },
+    "context": "用于本地知识库导览机器人",
+    "dependencies": [],
+    "deadline": "2025-01-09T18:00:00Z"
+  }
+}
+```
+
+#### 阶段4：任务执行
+
+**专家执行任务**：
+
+```
+向量数据库专家的处理流程：
+
+1. 接收任务（检查inbox/）
+2. LLM理解任务需求：
+   - 需要实现向量检索
+   - 使用ChromaDB
+   - 支持语义搜索
+
+3. 调用技能：
+   - skill_chromadb_create_index()
+   - skill_vector_embedding()
+   - skill_semantic_search()
+
+4. 产出成果：
+   - vector_db.py（Python代码）
+   - README.md（使用说明）
+
+5. 发送状态更新：
+   {
+     "message_type": "STATUS_UPDATE",
+     "task_id": "task_002_01",
+     "status": "COMPLETED",
+     "output": {"code": "vector_db.py", "doc": "README.md"}
+   }
+```
+
+**遇到问题的处理（求助机制）**：
+
+```
+场景：Python专家在集成LLM时遇到问题
+
+Python专家发现问题：
+"需要知道如何优化LangChain的RAG性能"
+
+↓ 发送求助（不是分配）
+
+{
+  "message_type": "HELP_REQUEST",
+  "from_agent": "agent_202_python_expert",
+  "to_agent": "agent_003_tech_manager",
+  "help_request": {
+    "problem": "LangChain RAG性能优化",
+    "required_input": "当前的RAG实现代码",
+    "expected_output": "优化建议或方案",
+    "context": "回答速度太慢，需要优化"
+  },
+  "return_address": "agent_202_python_expert"
+}
+
+↓ 技术经理收到求助
+
+技术经理LLM分析：
+"这是技术问题，向量数据库专家能解决"
+
+↓ 转发给向量数据库专家
+
+{
+  "message_type": "FORWARDED_TASK",
+  "from_agent": "agent_003_tech_manager",
+  "to_agent": "agent_201_vector_db_expert",
+  "original_requester": "agent_202_python_expert",
+  "task": { ... }
+}
+
+↓ 向量数据库专家处理
+
+向量数据库专家：
+1. 提供优化建议（增加缓存、调整chunk size等）
+2. 直接回复给Python专家（return_address）
+
+{
+  "message_type": "TASK_RESPONSE",
+  "from_agent": "agent_201_vector_db_expert",
+  "to_agent": "agent_202_python_expert",
+  "response": {
+    "optimization_suggestions": ["增加元数据过滤", "调整top_k参数"],
+    "code_example": "..."
+  }
+}
+```
+
+#### 阶段5：进度监控
+
+**项目经理的定时问询**：
+
+```
+项目经理每2小时自动触发：
+
+1. 向所有正在执行任务的Agent发送STATUS_REQUEST
+2. Agent返回STATUS_UPDATE
+
+Python专家的回复：
+{
+  "message_type": "STATUS_UPDATE",
+  "agent_id": "agent_202_python_expert",
+  "task_id": "task_002_02",
+  "status": "IN_PROGRESS",
+  "progress": "60%",
+  "completed_items": ["文档解析", "向量嵌入"],
+  "current_item": "LangChain RAG集成",
+  "remaining_items": ["性能优化", "测试"],
+  "blockers": [],
+  "estimated_completion": "2025-01-09T16:00:00Z"
+}
+
+3. 项目经理汇总所有进度
+4. 生成进度报告
+5. 发送给总经理
+```
+
+**进度报告**：
+
+```json
+{
+  "report_id": "progress_001",
+  "project": "本地知识库导览机器人",
+  "overall_progress": "45%",
+  "tasks": [
+    {
+      "task_id": "task_001",
+      "title": "需求文档",
+      "status": "COMPLETED",
+      "progress": "100%"
+    },
+    {
+      "task_id": "task_002",
+      "title": "架构设计",
+      "status": "COMPLETED",
+      "progress": "100%"
+    },
+    {
+      "task_id": "task_002_01",
+      "title": "向量检索",
+      "status": "COMPLETED",
+      "progress": "100%"
+    },
+    {
+      "task_id": "task_002_02",
+      "title": "LLM集成",
+      "status": "IN_PROGRESS",
+      "progress": "60%"
+    }
+  ],
+  "blockers": [],
+  "estimated_completion": "2025-01-12T18:00:00Z"
+}
+```
+
+#### 阶段6：产出交付
+
+**所有任务完成后**：
+
+```
+1. 专家们产出所有成果：
+   - vector_db.py（向量数据库）
+   - document_processor.py（文档处理）
+   - llm_integration.py（LLM集成）
+   - web_ui.py（Web界面）
+   - test_report.md（测试报告）
+
+2. 技术经理汇总技术成果
+3. 产品经理编写用户手册
+4. 总经理整合所有产出
+
+5. 总经理交付给用户：
+{
+  "delivery": {
+    "software": "完整的本地知识库导览机器人",
+    "documents": [
+      "README.md（使用指南）",
+      "ARCHITECTURE.md（架构文档）",
+      "USER_MANUAL.md（用户手册）"
+    ],
+    "code": [
+      "vector_db.py",
+      "document_processor.py",
+      "llm_integration.py",
+      "web_ui.py",
+      "main.py"
+    ],
+    "tests": "test_results.md"
+  }
+}
+```
+
+---
+
+## 5. 关键机制详解
+
+### 5.1 会议机制
+
+**会议的本质**：
+> 会议是持续的LLM多轮协商过程，不需要实时响应
+
+**会议类型**：
+
+| 会议类型 | 召集者 | 参与者 | 目的 |
+|---------|-------|-------|------|
+| **规划会议** | 总经理 | 各经理 | 理解需求、制定计划 |
+| **技术会议** | 技术经理 | 技术专家 | 技术方案设计 |
+| **产品会议** | 产品经理 | 产品专家 | 需求讨论 |
+| **项目会议** | 项目经理 | 各经理 | 进度同步 |
+
+**会议的LLM协商过程**：
+
+```python
+# 伪代码
+def conduct_meeting(meeting_invitation):
+    participants = meeting_invitation.to_agents
+
+    # 第1轮：召集者提出议题
+    current_context = f"议题：{meeting_invitation.agenda}"
+
+    # 多轮协商
+    round = 1
+    while not consensus_reached:
+        for participant in participants:
+            # 每个参与者轮流发言
+            input = prepare_input(participant, current_context)
+
+            # LLM生成回应
+            response = llm_call(
+                agent=participant,
+                context=current_context,
+                input=input
+            )
+
+            # 添加到对话上下文
+            current_context += f"\n{participant.name}: {response}"
+
+            # 等待其他参与者（10秒-几小时）
+            wait_for_next_round()
+
+        # 检查是否达成共识
+        if llm_check_consensus(current_context):
+            consensus_reached = True
+
+        round += 1
+
+    # 生成会议纪要
+    meeting_minutes = llm_generate_minutes(current_context)
+
+    # 生成任务分配清单
+    task_assignments = llm_generate_tasks(current_context)
+
+    return meeting_minutes, task_assignments
+```
+
+**会议的时间特性**：
+
+| 指标 | 值 | 说明 |
+|------|---|------|
+| 单轮响应时间 | 10秒-几小时 | Agent异步参与 |
+| 会议总时长 | 几小时-几天 | 不限制时长 |
+| Agent在线要求 | 无需同时在线 | 可以离线参与 |
+| 会议轮次 | 3-15轮 | 直到达成共识 |
+
+**示例时间线**：
+
+```
+Day 1, 10:00 - 总经理发起会议
+Day 1, 10:10 - 产品经理回应
+Day 1, 10:20 - 技术经理回应
+Day 1, 10:35 - 项目经理回应
+Day 1, 11:00 - 总经理总结，继续讨论
+Day 1, 14:00 - 技术经理补充方案
+Day 1, 16:00 - 产品经理确认需求
+Day 2, 09:00 - 所有经理达成共识
+Day 2, 10:00 - 产出会议纪要和任务分配
+```
+
+### 5.2 求助机制
+
+**求助的本质**：
+> 求助是专家向上级请求支持的方式，不需要分配权限
+
+**求助的类型**：
+
+| 求助类型 | 场景 | 路由 |
+|---------|------|------|
+| **简单求助** | 需要同部门其他专家 | 专家→经理→专家（2跳） |
+| **复杂求助** | 需要跨部门专家 | 专家→经理→总经理→经理→专家（4跳） |
+| **无法解决** | 超出系统能力 | 专家→经理→总经理→拒绝或建议外包 |
+
+**求助的完整流程**：
+
+```
+Step 1: 专家发现问题
+Python专家发现："需要前端界面开发"
+
+Step 2: 发送求助
+{
+  "message_type": "HELP_REQUEST",
+  "from_agent": "agent_202_python_expert",
+  "to_agent": "agent_003_tech_manager",  // 自己的经理
+  "help_request": {
+    "problem": "需要Web界面展示",
+    "required_input": "后端API接口",
+    "expected_output": "前端HTML页面",
+    "context": "用户需要通过Web界面查询知识库"
+  },
+  "return_address": "agent_202_python_expert"
+}
+
+Step 3-A: 经理能解决
+技术经理LLM分析："这是前端开发，我有前端专家"
+
+转发给前端专家：
+{
+  "message_type": "FORWARDED_TASK",
+  "from_agent": "agent_003_tech_manager",
+  "to_agent": "agent_301_frontend_expert",
+  "original_requester": "agent_202_python_expert",
+  "task": { ... }
+}
+
+Step 4: 前端专家执行
+前端专家开发Web界面...
+
+Step 5: 直接回复给请求者
+{
+  "message_type": "TASK_RESPONSE",
+  "from_agent": "agent_301_frontend_expert",
+  "to_agent": "agent_202_python_expert",  // return_address
+  "result": {
+    "frontend_code": "web_ui.py",
+    "usage": "python web_ui.py启动"
+  }
+}
+
+---
+
+Step 3-B: 经理不能解决
+技术经理LLM分析："这是UI设计，需要设计经理"
+
+上报给总经理：
+{
+  "message_type": "ESCALATE",
+  "from_agent": "agent_003_tech_manager",
+  "to_agent": "agent_001_general_manager",
+  "reason": "需要UI设计专家，超出技术部门范围",
+  "original_requester": "agent_202_python_expert"
+}
+
+总经理LLM分析："应该找设计经理"
+
+转发给设计经理：
+{
+  "message_type": "FORWARD",
+  "from_agent": "agent_001_general_manager",
+  "to_agent": "agent_005_design_manager",
+  "task": { ... }
+}
+
+设计经理 → UI设计专家 → 回复给Python专家
+```
+
+**求助vs分配的区别**：
+
+| 维度 | 分配任务 | 求助协助 |
+|------|---------|---------|
+| 方向 | 向下 | 向上 |
+| 权限要求 | 需要"分配"技能 | 不需要特殊技能 |
+| 命令性 | 强制性 | 协商性 |
+| 适用场景 | 管理者→执行者 | 执行者→管理者→执行者 |
+
+### 5.3 监控机制
+
+**监控的本质**：
+> 定时主动问询，而非被动等待汇报
+
+**监控的类型**：
+
+| 监控类型 | 执行者 | 频率 | 对象 |
+|---------|-------|------|------|
+| **项目监控** | 项目经理 | 每2小时 | 所有任务 |
+| **部门监控** | 经理 | 每4小时 | 本部门任务 |
+| **异常监控** | 所有Agent | 实时 | 超时任务 |
+
+**监控流程**：
+
+```
+项目经理的监控循环（每2小时触发）：
+
+1. 获取所有正在执行的任务
+2. 向对应的Agent发送STATUS_REQUEST
+3. 等待Agent的STATUS_UPDATE
+4. 汇总所有状态
+5. 检查是否有超时或阻塞
+6. 生成进度报告
+7. 发送给总经理
+
+伪代码：
+while project_is_active:
+    sleep(2_hours)
+
+    active_tasks = get_active_tasks()
+    status_updates = []
+
+    for task in active_tasks:
+        send_status_request(task.assigned_agent)
+        status_update = wait_for_response()
+        status_updates.append(status_update)
+
+    report = generate_progress_report(status_updates)
+
+    if report.has_blockers():
+        alert_manager(report.blockers)
+
+    send_to_gm(report)
+```
+
+**状态更新的格式**：
+
+```json
+{
+  "message_type": "STATUS_UPDATE",
+  "agent_id": "agent_202_python_expert",
+  "task_id": "task_002_02",
+  "timestamp": "2025-01-07T14:00:00Z",
+
+  "status": "IN_PROGRESS",  // PENDING | IN_PROGRESS | BLOCKED | COMPLETED | FAILED
+
+  "progress": {
+    "percent": 60,
+    "completed_items": ["文档解析", "向量嵌入"],
+    "current_item": "LangChain集成",
+    "remaining_items": ["性能优化", "测试"]
+  },
+
+  "blockers": [
+    {
+      "type": "WAITING_INPUT",
+      "description": "等待向量数据库专家的API文档",
+      "blocked_by": "agent_201_vector_db_expert",
+      "expected_resolution": "2025-01-07T16:00:00Z"
+    }
+  ],
+
+  "estimated_completion": "2025-01-09T18:00:00Z",
+
+  "outputs_produced": [
+    {"name": "document_processor.py", "path": "..."},
+    {"name": "vector_embeddings.py", "path": "..."}
+  ]
+}
+```
+
+### 5.4 路由机制
+
+**路由的本质**：
+> 三层架构实现高效的服务发现和消息转发
+
+**路由表（逻辑层面，非物理存储）**：
+
+```
+Level 1: 专家 → 经理路由
+专家A → 自己的经理（标签匹配）
+
+Level 2: 经理层路由
+├─ 能解决 → 直接转发给对应专家
+└─ 不能解决 → 上报给总经理
+
+Level 3: 总经理全局路由
+总经理 → 判断应该找哪个经理 → 转发给对应经理
+```
+
+**路由决策示例**：
+
+```
+场景1：Python专家需要数据库协助
+Python专家 → 技术经理
+技术经理LLM分析："数据库属于技术领域，我有数据库专家"
+→ 转发给数据库专家
+
+场景2：Python专家需要UI设计
+Python专家 → 技术经理
+技术经理LLM分析："UI设计属于设计领域，我没有设计专家"
+→ 上报给总经理
+总经理LLM分析："应该找设计经理"
+→ 转发给设计经理
+设计经理 → UI设计专家
+```
+
+**路由效率**：
+
+| 场景 | 路径 | 跳数 | 时间 |
+|------|------|------|------|
+| 部门内协作 | 专家→经理→专家 | 2跳 | 20-30秒 |
+| 跨部门协作 | 专家→经理→总经理→经理→专家 | 4跳 | 40-60秒 |
+| 复杂协作 | 多个部门 | 4-6跳 | 1-2分钟 |
+
+### 5.5 文件通信细节
+
+**轮询机制**：
+
+```python
+# 每个Agent的执行循环
+def agent_loop():
+    while True:
+        # 1. 检查收件箱
+        inbox_path = f"agents/{my_agent_id}/inbox/"
+        new_messages = scan_directory(inbox_path)
+
+        if new_messages:
+            # 2. 处理新消息
+            for message_file in new_messages:
+                message = read_json(message_file)
+
+                # 验证消息
+                if validate_message(message):
+                    # 处理消息
+                    response = process_message(message)
+
+                    # 移动到已处理
+                    move_to_processed(message_file)
+
+                    # 如果需要回复
+                    if response:
+                        send_message(response)
+                else:
+                    # 消息格式错误，记录日志
+                    log_error(f"Invalid message: {message_file}")
+
+        # 3. 休眠10秒
+        time.sleep(10)
+```
+
+**消息验证**：
+
+```python
+def validate_message(message):
+    # 必填字段检查
+    required_fields = [
+        "message_id", "from_agent", "to_agent",
+        "message_type", "timestamp"
+    ]
+
+    for field in required_fields:
+        if field not in message:
+            return False
+
+    # 消息类型检查
+    valid_types = [
+        "TASK_ASSIGNMENT", "HELP_REQUEST", "MEETING_INVITATION",
+        "STATUS_REQUEST", "STATUS_UPDATE", "MEETING_RESPONSE"
+    ]
+
+    if message["message_type"] not in valid_types:
+        return False
+
+    # 接收者检查
+    if message["to_agent"] != my_agent_id:
+        return False
+
+    return True
+```
+
+**消息去重**：
+
+```python
+# 使用message_id防止重复处理
+processed_messages = set()
+
+def is_duplicate(message):
+    if message["message_id"] in processed_messages:
+        return True
+    processed_messages.add(message["message_id"])
+    return False
+```
+
+---
+
+## 6. 完整示例：本地知识库导览机器人
+
+### 6.1 用户需求
+
+**任务描述**：
+
+> 我想做一个本地知识库导览机器人。我有很多PDF和Markdown格式的技术文档，希望能通过自然语言查询这些文档，获得准确的答案，并且答案要引用文档来源。
+
+**输入**：
+- 本地文档集合（PDF/MD格式）
+- 用户的自然语言问题
+
+**输出**：
+- 准确的问题回答
+- 引用的文档来源（页码、章节）
+
+**要求**：
+- 支持PDF和Markdown格式
+- 语义搜索（不是关键词匹配）
+- 回答准确，有据可查
+- 界面简单易用
+
+### 6.2 系统执行流程
+
+#### Step 1: 用户提交任务
+
+用户创建任务文件 `user_tasks/inbox/task_001.json`：
+
+```json
+{
+  "task_id": "user_task_001",
+  "title": "本地知识库导览机器人",
+  "description": "通过自然语言查询本地PDF/MD文档，获得准确回答和来源引用",
+  "required_input": {
+    "documents": "本地PDF和Markdown文档",
+    "user_query": "用户的自然语言问题"
+  },
+  "expected_output": {
+    "answer": "准确的答案",
+    "citations": "引用的文档来源（文件名、页码、章节）"
+  },
+  "priority": "HIGH",
+  "deadline": "2025-01-15T18:00:00Z"
+}
+```
+
+#### Step 2: 总经理接收任务
+
+```
+时间：2025-01-05 10:00
+
+总经理检查 user_tasks/inbox/
+发现新任务 task_001.json
+
+总经理的LLM分析：
+"这是一个产品+技术任务
+需要：
+- 产品经理：明确需求
+- 技术经理：设计方案
+- 文档专家：处理PDF/MD
+- 向量数据库专家：语义搜索
+- Python专家：LLM集成
+- 前端专家：用户界面
+
+任务复杂度：高
+建议层级：5层
+我需要召集规划会议"
+```
+
+#### Step 3: 总经理召集规划会议
+
+**会议邀请**：
+
+```json
+{
+  "message_type": "MEETING_INVITATION",
+  "meeting_id": "meeting_001",
+  "from_agent": "agent_001_general_manager",
+  "to_agent": [
+    "agent_002_project_manager",
+    "agent_003_tech_manager",
+    "agent_004_product_manager",
+    "agent_005_doc_manager"
+  ],
+  "subject": "本地知识库导览机器人 - 项目规划",
+  "agenda": [
+    "需求分析和用户画像",
+    "技术方案选型",
+    "任务分解和分工",
+    "时间计划制定"
+  ],
+  "deadline": "2025-01-05T18:00:00Z"
+}
+```
+
+**多轮会议讨论**：
+
+```
+【Round 1: 10:10】总经理：
+"各位，收到一个任务：本地知识库导览机器人。用户希望通过自然语言查询本地文档，获得准确答案和来源。请各位发表意见。"
+
+【Round 2: 10:15】产品经理：
+"从产品角度，核心功能包括：
+1. 文档导入：支持批量导入PDF/MD/TXT
+2. 文档解析：提取文本、保留结构
+3. 向量化：将文档转换为向量表示
+4. 语义检索：根据问题找到相关文档片段
+5. 答案生成：基于检索结果生成答案
+6. 来源引用：标注答案来自哪些文档
+
+用户场景：
+- 研究人员：快速找到论文中的信息
+- 律师：查找法律条款和案例
+- 医生：查询医学文献
+- 程序员：搜索技术文档
+
+产品定位：本地、隐私、准确、易用"
+
+【Round 3: 10:25】技术经理：
+"技术方案建议：
+
+文档处理层：
+- PDF解析：PyPDF2, pdfplumber
+- MD解析：markdown库
+- 文本提取：保留标题、段落、列表结构
+
+向量数据库层：
+- 向量数据库：ChromaDB（轻量、本地）
+- 嵌入模型：sentence-transformers/all-MiniLM-L6-v2
+- 分块策略：按章节分块，chunk_size=500, overlap=50
+
+检索层：
+- 语义检索：向量相似度搜索
+- 混合检索：语义+关键词（可选）
+- Top-K：返回前5个最相关片段
+
+生成层：
+- LLM：使用Claude API或本地LLM
+- Prompt模板：包含检索到的文档片段
+- 引用生成：标注来源文档
+
+技术栈：
+Python 3.10 + LangChain + ChromaDB + Streamlit
+
+架构：
+- 后端：FastAPI（文档处理API、检索API）
+- 前端：Streamlit（简单易用）
+- 数据存储：本地文件系统"
+
+【Round 4: 10:35】项目经理：
+"项目规划建议：
+
+Phase 1 - MVP（Week 1）：
+- 文档导入和解析
+- 向量检索
+- 简单问答
+- 命令行界面
+
+Phase 2 - 优化（Week 2）：
+- 检索精度优化
+- 答案质量提升
+- Web界面（Streamlit）
+
+Phase 3 - 完善（Week 3）：
+- 来源引用功能
+- 批量文档处理
+- 用户反馈收集
+
+时间线：3周完成MVP+优化
+团队：需要5-6个专家
+风险：检索精度可能需要多次调优"
+
+【Round 5: 10:45】文档经理：
+"文档处理需要注意：
+
+PDF处理：
+- 处理多列排版
+- 提取表格数据
+- 保留图片说明
+- 识别页眉页脚
+
+Markdown处理：
+- 保留标题层级
+- 处理代码块
+- 提取链接
+- 解析表格
+
+文本清洗：
+- 去除特殊字符
+- 统一换行符
+- 识别章节边界
+- 提取元数据
+
+输出：结构化文本（JSON格式）
+{
+  'content': '文本内容',
+  'metadata': {
+    'source': '文件名',
+    'page': 页码,
+    'chapter': '章节',
+    'type': '段落/列表/表格'
+  }
+}"
+
+【Round 6: 11:00】总经理：
+"感谢各位的详细分析。我总结一下：
+
+产品定位：
+本地、隐私、准确、易用的知识库问答系统
+
+技术方案：
+Python + LangChain + ChromaDB + Streamlit
+
+项目计划：
+Phase 1 (Week 1): MVP核心功能
+Phase 2 (Week 2): 优化和Web界面
+Phase 3 (Week 3): 完善和引用
+
+任务分配：
+1. 产品经理：需求文档（1天）
+2. 技术经理：架构设计文档（1天）
+3. 文档专家：文档处理模块（3天）
+4. 向量数据库专家：向量检索模块（3天）
+5. Python专家：LLM集成模块（3天）
+6. 前端专家：Streamlit界面（2天）
+7. 测试专家：功能测试（2天）
+
+项目经理：负责整体协调和进度监控
+每2小时汇报一次进度
+
+大家同意吗？"
+
+【Round 7: 11:10】所有人：
+"同意！"
+
+【Round 8: 11:15】总经理：
+"好，会议结束。我会正式分配任务给各位。
+产品经理和技术经理先完成文档，其他专家等待技术架构完成后开始。
+散会！"
+```
+
+**会议产出 - 任务分配清单**：
+
+```json
+{
+  "meeting_id": "meeting_001",
+  "outcome": "APPROVED",
+  "timestamp": "2025-01-05T11:15:00Z",
+  "task_assignments": [
+    {
+      "task_id": "task_001",
+      "assigned_to": "agent_004_product_manager",
+      "title": "编写需求文档",
+      "input": {"user_requirements": "本地知识库导览机器人"},
+      "output": {"requirement_doc": "PRD.md"},
+      "tags": ["产品"],
+      "deadline": "2025-01-05T18:00:00Z",
+      "priority": "HIGH"
+    },
+    {
+      "task_id": "task_002",
+      "assigned_to": "agent_003_tech_manager",
+      "title": "编写技术架构文档",
+      "input": {"requirement_doc": "来自task_001"},
+      "output": {"architecture_doc": "ARCHITECTURE.md"},
+      "tags": ["技术"],
+      "deadline": "2025-01-05T18:00:00Z",
+      "priority": "HIGH"
+    },
+    {
+      "task_id": "task_003",
+      "assigned_to": "agent_102_doc_expert",
+      "title": "实现文档处理模块",
+      "input": {"architecture_doc": "来自task_002"},
+      "output": {"module": "document_processor.py"},
+      "tags": ["文档"],
+      "deadline": "2025-01-08T18:00:00Z",
+      "priority": "HIGH",
+      "dependencies": ["task_002"]
+    },
+    {
+      "task_id": "task_004",
+      "assigned_to": "agent_201_vector_db_expert",
+      "title": "实现向量检索模块",
+      "input": {"architecture_doc": "来自task_002"},
+      "output": {"module": "vector_retrieval.py"},
+      "tags": ["技术", "数据库"],
+      "deadline": "2025-01-08T18:00:00Z",
+      "priority": "HIGH",
+      "dependencies": ["task_002"]
+    },
+    {
+      "task_id": "task_005",
+      "assigned_to": "agent_202_python_expert",
+      "title": "实现LLM集成模块",
+      "input": {
+        "vector_module": "来自task_004",
+        "document_module": "来自task_003"
+      },
+      "output": {"module": "llm_integration.py"},
+      "tags": ["技术", "开发"],
+      "deadline": "2025-01-08T18:00:00Z",
+      "priority": "HIGH",
+      "dependencies": ["task_003", "task_004"]
+    },
+    {
+      "task_id": "task_006",
+      "assigned_to": "agent_301_frontend_expert",
+      "title": "开发Streamlit界面",
+      "input": {"backend_modules": "来自task_005"},
+      "output": {"module": "web_ui.py"},
+      "tags": ["设计", "前端"],
+      "deadline": "2025-01-10T18:00:00Z",
+      "priority": "MEDIUM",
+      "dependencies": ["task_005"]
+    },
+    {
+      "task_id": "task_007",
+      "assigned_to": "agent_401_test_expert",
+      "title": "功能测试",
+      "input": {"all_modules": "来自task_006"},
+      "output": {"test_report": "TEST_REPORT.md"},
+      "tags": ["测试"],
+      "deadline": "2025-01-11T18:00:00Z",
+      "priority": "MEDIUM",
+      "dependencies": ["task_006"]
+    }
+ ]
+}
+```
+
+#### Step 4: 任务分配
+
+**总经理分配任务给经理**：
+
+```
+总经理 → 产品经理：task_001
+总经理 → 技术经理：task_002
+总经理 → 项目经理："监控整个项目进度"
+```
+
+**产品经理执行task_001**：
+
+```
+2025-01-05 11:20 - 产品经理收到task_001
+
+产品经理的LLM分析：
+"需要编写详细的需求文档
+包括：
+1. 产品概述
+2. 用户画像
+3. 功能需求
+4. 非功能需求
+5. 使用场景
+6. 竞品分析"
+
+产品经理调用技能：
+- skill_write_requirements()
+- skill_analyze_users()
+- skill_create_user_stories()
+
+2025-01-05 17:00 - 产品经理完成
+产出：PRD.md
+
+发送STATUS_UPDATE：
+{
+  "message_type": "STATUS_UPDATE",
+  "task_id": "task_001",
+  "status": "COMPLETED",
+  "output": {"requirement_doc": "PRD.md"}
+}
+```
+
+**技术经理执行task_002**：
+
+```
+2025-01-05 11:20 - 技术经理收到task_002
+
+技术经理的LLM分析：
+"需要编写技术架构文档
+基于产品需求文档
+需要参考会议讨论的技术方案"
+
+技术经理等待task_001完成...
+
+2025-01-05 17:10 - 技术经理收到PRD.md
+技术经理开始编写架构文档
+
+技术经理调用技能：
+- skill_design_architecture()
+- skill_create_diagrams()
+- skill_write_tech_doc()
+
+2025-01-05 17:50 - 技术经理完成
+产出：ARCHITECTURE.md
+
+发送STATUS_UPDATE：
+{
+  "message_type": "STATUS_UPDATE",
+  "task_id": "task_002",
+  "status": "COMPLETED",
+  "output": {"architecture_doc": "ARCHITECTURE.md"}
+}
+```
+
+**技术经理召集技术会议**：
+
+```
+2025-01-05 18:00 - 技术经理收到会议成果
+发现有3个专家需要分配任务：
+- 文档专家（task_003）
+- 向量数据库专家（task_004）
+- Python专家（task_005）
+
+技术经理召集技术会议：
+
+会议邀请：
+{
+  "message_type": "MEETING_INVITATION",
+  "from_agent": "agent_003_tech_manager",
+  "to_agent": [
+    "agent_102_doc_expert",
+    "agent_201_vector_db_expert",
+    "agent_202_python_expert"
+  ],
+  "subject": "本地知识库机器人 - 技术实施会议",
+  "agenda": [
+    "任务详细说明",
+    "接口定义",
+    "开发协调"
+  ]
+}
+
+会议讨论（30分钟）：
+
+技术经理："各位，项目已经启动了。我简单说明一下每个人的任务：
+
+文档专家：
+你需要处理PDF和Markdown文件，提取文本和结构。
+输入：PDF/MD文件
+输出：结构化JSON，包含content和metadata
+依赖：无
+截止：2025-01-08
+
+向量数据库专家：
+你需要实现向量检索功能。
+输入：文档向量和用户查询
+输出：最相关的Top-K文档片段
+依赖：无（可以并行开发）
+截止：2025-01-08
+
+Python专家：
+你需要集成LLM，实现问答功能。
+输入：检索到的文档片段 + 用户问题
+输出：准确的答案
+依赖：文档专家和向量数据库专家的模块
+截止：2025-01-08
+
+大家有问题吗？"
+
+文档专家："PDF解析有什么特殊要求吗？"
+
+技术经理："需要保留章节结构，提取表格，识别页码。
+输出格式：
+{
+  'chunks': [
+    {
+      'text': '文本内容',
+      'metadata': {
+        'source': '文件名',
+        'page': 页码,
+        'chapter': '章节标题',
+        'type': 'paragraph/list/table'
+      }
+    }
+  ]
+}"
+
+向量数据库专家："用什么嵌入模型？"
+
+技术经理："sentence-transformers的all-MiniLM-L6-v2。
+轻量、准确、支持中文。
+向量维度384，ChromaDB存储。"
+
+Python专家："用哪个LLM？"
+
+技术经理："Claude API。如果有预算限制，可以用本地LLM（Llama 2）。
+Prompt模板需要包含检索到的文档片段，要求LLM基于这些内容回答。
+并且要求标注引用。"
+
+文档专家："明白了，3天完成。"
+
+向量数据库专家："好的，3天。"
+
+Python专家："等我这两个模块完成再开始，大概2天。"
+
+技术经理："好，散会。大家开始工作吧！"
+```
+
+**技术经理分配任务**：
+
+```json
+// 技术经理 → 文档专家
+{
+  "message_type": "TASK_ASSIGNMENT",
+  "task_id": "task_003",
+  "detailed_requirements": {
+    "pdf_processing": {
+      "libraries": ["PyPDF2", "pdfplumber"],
+      "requirements": [
+        "提取文本内容",
+        "保留章节结构",
+        "提取表格数据",
+        "识别页码和页眉页脚"
+      ]
+    },
+    "md_processing": {
+      "libraries": ["markdown"],
+      "requirements": [
+        "解析标题层级",
+        "处理代码块",
+        "提取链接",
+        "解析表格"
+      ]
+    },
+    "output_format": {
+      "chunks": [
+        {
+          "text": "文本内容",
+          "metadata": {
+            "source": "str",
+            "page": "int",
+            "chapter": "str",
+            "type": "paragraph|list|table"
+          }
+        }
+      ]
+    }
+  }
+}
+
+// 技术经理 → 向量数据库专家
+{
+  "message_type": "TASK_ASSIGNMENT",
+  "task_id": "task_004",
+  "detailed_requirements": {
+    "vector_db": "ChromaDB",
+    "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "chunk_strategy": {
+      "chunk_size": 500,
+      "overlap": 50,
+      "split_by": "chapter"
+    },
+    "retrieval": {
+      "top_k": 5,
+      "similarity_threshold": 0.7
+    }
+  }
+}
+
+// 技术经理 → Python专家
+{
+  "message_type": "TASK_ASSIGNMENT",
+  "task_id": "task_005",
+  "detailed_requirements": {
+    "llm": "Claude API",
+    "prompt_template": "
+    你是一个知识库问答助手。
+    基于以下文档片段回答用户问题。
+
+    文档片段：
+    {retrieved_chunks}
+
+    用户问题：
+    {user_query}
+
+    要求：
+    1. 基于文档内容回答
+    2. 标注引用来源（文件名、页码）
+    3. 如果文档中没有答案，明确说明
+    ",
+    "citation_format": {
+      "source": "文件名",
+      "page": "页码",
+      "chapter": "章节"
+    }
+  },
+  "dependencies": ["task_003", "task_004"]
+}
+```
+
+#### Step 5: 专家执行任务
+
+**文档专家执行task_003**：
+
+```
+2025-01-06 09:00 - 文档专家开始工作
+
+文档专家的LLM分析：
+"需要实现两个主要功能：
+1. PDF处理器
+2. Markdown处理器
+
+核心挑战：
+- PDF的多列排版
+- 表格数据提取
+- 章节结构识别
+
+我的技能：
+- PyPDF2：基础PDF解析
+- pdfplumber：高级PDF处理（表格）
+- markdown：MD解析
+
+实现计划：
+Day 1: PDF处理
+Day 2: Markdown处理和文本清洗
+Day 3: 集成测试和优化"
+
+文档专家开始编码...
+
+Day 1 - PDF处理：
+```python
+# document_processor.py
+
+import PyPDF2
+import pdfplumber
+import json
+from typing import List, Dict
+
+class DocumentProcessor:
+    def process_pdf(self, pdf_path: str) -> List[Dict]:
+        """处理PDF文件，提取文本和结构"""
+        chunks = []
+
+        with pdfplumber.open(pdf_path) as pdf:
+            for page_num, page in enumerate(pdf.pages, 1):
+                text = page.extract_text()
+                tables = page.extract_tables()
+
+                # 提取段落
+                if text:
+                    chunks.append({
+                        'text': text,
+                        'metadata': {
+                            'source': pdf_path,
+                            'page': page_num,
+                            'type': 'paragraph'
+                        }
+                    })
+
+                # 提取表格
+                for table in tables:
+                    chunks.append({
+                        'text': str(table),
+                        'metadata': {
+                            'source': pdf_path,
+                            'page': page_num,
+                            'type': 'table'
+                        }
+                    })
+
+        return chunks
+
+    def process_markdown(self, md_path: str) -> List[Dict]:
+        """处理Markdown文件"""
+        import markdown
+        from bs4 import BeautifulSoup
+
+        with open(md_path, 'r', encoding='utf-8') as f:
+            md_content = f.read()
+
+        html = markdown.markdown(md_content)
+        soup = BeautifulSoup(html, 'html.parser')
+
+        chunks = []
+        current_chapter = "Introduction"
+
+        # 提取标题
+        for tag in soup.find_all(['h1', 'h2', 'h3']):
+            current_chapter = tag.get_text()
+
+        # 提取段落
+        for p in soup.find_all('p'):
+            if p.get_text().strip():
+                chunks.append({
+                    'text': p.get_text(),
+                    'metadata': {
+                        'source': md_path,
+                        'chapter': current_chapter,
+                        'type': 'paragraph'
+                    }
+                })
+
+        return chunks
+```
+
+Day 2 - Markdown处理和优化：
+
+```python
+    def clean_text(self, text: str) -> str:
+        """清洗文本"""
+        import re
+
+        # 去除多余空白
+        text = re.sub(r'\s+', ' ', text)
+
+        # 去除特殊字符
+        text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', text)
+
+        return text.strip()
+
+    def split_into_chunks(self, text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
+        """将长文本分块"""
+        words = text.split()
+        chunks = []
+
+        for i in range(0, len(words), chunk_size - overlap):
+            chunk = ' '.join(words[i:i + chunk_size])
+            chunks.append(chunk)
+
+        return chunks
+```
+
+Day 3 - 测试：
+
+```python
+    def process_document(self, file_path: str) -> List[Dict]:
+        """统一的文档处理接口"""
+        if file_path.endswith('.pdf'):
+            chunks = self.process_pdf(file_path)
+        elif file_path.endswith('.md'):
+            chunks = self.process_markdown(file_path)
+        else:
+            raise ValueError(f"Unsupported file type: {file_path}")
+
+        # 清洗文本
+        for chunk in chunks:
+            chunk['text'] = self.clean_text(chunk['text'])
+
+        return chunks
+```
+
+2025-01-08 17:00 - 文档专家完成
+产出：document_processor.py（完整实现）
+发送STATUS_UPDATE
+```
+
+**向量数据库专家执行task_004**：
+
+```
+2025-01-06 09:00 - 向量数据库专家开始工作
+
+向量数据库专家的LLM分析：
+"需要实现向量检索功能
+核心组件：
+1. 嵌入模型（sentence-transformers）
+2. 向量数据库（ChromaDB）
+3. 检索接口
+
+我的技能：
+- ChromaDB：向量数据库操作
+- sentence-transformers：文本嵌入
+
+实现计划：
+Day 1: 搭建嵌入模型和向量数据库
+Day 2: 实现检索逻辑
+Day 3: 优化和测试"
+
+向量数据库专家开始编码...
+
+Day 1-2: 核心实现
+```python
+# vector_retrieval.py
+
+from sentence_transformers import SentenceTransformer
+import chromadb
+from chromadb.config import Settings
+from typing import List, Dict
+
+class VectorRetrieval:
+    def __init__(self):
+        # 加载嵌入模型
+        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+
+        # 初始化ChromaDB
+        self.client = chromadb.Client(Settings(
+            chroma_db_impl="duckdb+parquet",
+            persist_directory="./chroma_db"
+        ))
+
+        # 创建或获取collection
+        self.collection = self.client.get_or_create_collection(
+            name="documents",
+            metadata={"hnsw:space": "cosine"}
+        )
+
+    def add_documents(self, chunks: List[Dict]):
+        """添加文档到向量数据库"""
+        texts = [chunk['text'] for chunk in chunks]
+        metadatas = [chunk['metadata'] for chunk in chunks]
+        ids = [f"doc_{i}" for i in range(len(chunks))]
+
+        # 生成嵌入
+        embeddings = self.embedding_model.encode(texts).tolist()
+
+        # 添加到数据库
+        self.collection.add(
+            documents=texts,
+            embeddings=embeddings,
+            metadatas=metadatas,
+            ids=ids
+        )
+
+    def retrieve(self, query: str, top_k: int = 5) -> List[Dict]:
+        """检索相关文档"""
+        # 生成查询向量
+        query_embedding = self.embedding_model.encode([query]).tolist()
+
+        # 查询
+        results = self.collection.query(
+            query_embeddings=query_embedding,
+            n_results=top_k
+        )
+
+        # 格式化结果
+        retrieved_docs = []
+        for i in range(len(results['ids'][0])):
+            retrieved_docs.append({
+                'text': results['documents'][0][i],
+                'metadata': results['metadatas'][0][i],
+                'distance': results['distances'][0][i]
+            })
+
+        return retrieved_docs
+```
+
+Day 3: 优化
+```python
+    def batch_add_documents(self, document_list: List[List[Dict]]):
+        """批量添加文档（优化性能）"""
+        for chunks in document_list:
+            self.add_documents(chunks)
+
+    def search_with_filter(self, query: str, top_k: int = 5,
+                          source_filter: str = None) -> List[Dict]:
+        """带过滤的检索"""
+        results = self.retrieve(query, top_k=top_k)
+
+        # 应用过滤
+        if source_filter:
+            results = [
+                r for r in results
+                if source_filter in r['metadata']['source']
+            ]
+
+        return results
+```
+
+2025-01-08 16:00 - 向量数据库专家完成
+产出：vector_retrieval.py（完整实现）
+发送STATUS_UPDATE
+```
+
+**Python专家执行task_005**：
+
+```
+2025-01-08 18:00 - Python专家收到两个模块完成的通知
+
+Python专家的LLM分析：
+"现在可以开始LLM集成了
+需要：
+1. 调用Claude API
+2. 构建Prompt模板
+3. 实现引用生成
+4. 创建问答接口
+
+我的技能：
+- Claude API调用
+- LangChain集成
+- Prompt工程"
+
+Python专家开始编码...
+
+```python
+# llm_integration.py
+
+import anthropic
+from vector_retrieval import VectorRetrieval
+from document_processor import DocumentProcessor
+from typing import List, Dict
+
+class KnowledgeBaseQA:
+    def __init__(self):
+        self.client = anthropic.Anthropic()
+        self.doc_processor = DocumentProcessor()
+        self.vector_retrieval = VectorRetrieval()
+
+    def add_documents(self, file_paths: List[str]):
+        """添加文档到知识库"""
+        for file_path in file_paths:
+            chunks = self.doc_processor.process_document(file_path)
+            self.vector_retrieval.add_documents(chunks)
+
+    def ask(self, query: str) -> Dict:
+        """回答用户问题"""
+        # Step 1: 检索相关文档
+        retrieved_docs = self.vector_retrieval.retrieve(query, top_k=5)
+
+        # Step 2: 构建Prompt
+        context = self._build_context(retrieved_docs)
+        prompt = self._build_prompt(query, context)
+
+        # Step 3: 调用LLM
+        response = self.client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        answer = response.content[0].text
+
+        # Step 4: 提取引用
+        citations = self._extract_citations(retrieved_docs)
+
+        return {
+            'answer': answer,
+            'citations': citations,
+            'sources': [doc['metadata'] for doc in retrieved_docs]
+        }
+
+    def _build_context(self, retrieved_docs: List[Dict]) -> str:
+        """构建上下文"""
+        context_parts = []
+        for i, doc in enumerate(retrieved_docs, 1):
+            context_parts.append(
+                f"[文档片段 {i}]\n"
+                f"来源：{doc['metadata']['source']}\n"
+                f"页码：{doc['metadata'].get('page', 'N/A')}\n"
+                f"内容：{doc['text']}\n"
+            )
+        return '\n'.join(context_parts)
+
+    def _build_prompt(self, query: str, context: str) -> str:
+        """构建Prompt"""
+        return f"""
+你是一个知识库问答助手。请基于以下文档片段回答用户问题。
+
+{context}
+
+用户问题：{query}
+
+要求：
+1. 基于文档内容回答
+2. 如果文档中没有答案，明确说明"文档中没有找到相关信息"
+3. 在回答中标注引用来源（使用[文档片段 X]）
+4. 回答要准确、简洁、有逻辑
+
+回答：
+"""
+
+    def _extract_citations(self, retrieved_docs: List[Dict]) -> List[Dict]:
+        """提取引用信息"""
+        citations = []
+        for doc in retrieved_docs:
+            citations.append({
+                'source': doc['metadata']['source'],
+                'page': doc['metadata'].get('page', 'N/A'),
+                'chapter': doc['metadata'].get('chapter', 'N/A')
+            })
+        return citations
+```
+
+2025-01-08 20:00 - Python专家完成
+产出：llm_integration.py（完整实现）
+发送STATUS_UPDATE
+```
+
+#### Step 6: 求助协作场景
+
+**Python专家遇到问题**：
+
+```
+2025-01-08 14:00 - Python专家在测试时发现性能问题
+
+Python专家的LLM分析：
+"检索速度太慢
+问题：
+- 每次查询需要2-3秒
+- 用户无法接受
+
+可能原因：
+1. 向量数据库没有索引
+2. top_k设置太大
+3. 嵌入模型太慢
+
+需要向量数据库专家的帮助"
+
+Python专家发送求助：
+
+```json
+{
+  "message_type": "HELP_REQUEST",
+  "from_agent": "agent_202_python_expert",
+  "to_agent": "agent_003_tech_manager",
+  "help_request": {
+    "problem": "检索性能优化",
+    "current_issue": "每次查询需要2-3秒，太慢了",
+    "required_input": "当前的检索实现",
+    "expected_output": "优化方案或代码改进",
+    "context": "用户期望<1秒的响应时间",
+    "urgency": "HIGH"
+  },
+  "return_address": "agent_202_python_expert"
+}
+```
+
+技术经理收到求助（10秒后）：
+
+技术经理LLM分析：
+"这是向量数据库的性能问题
+向量数据库专家能解决
+
+转发给向量数据库专家"
+
+```json
+{
+  "message_type": "FORWARDED_TASK",
+  "from_agent": "agent_003_tech_manager",
+  "to_agent": "agent_201_vector_db_expert",
+  "original_requester": "agent_202_python_expert",
+  "task": {
+    "problem": "检索性能优化",
+    "context": "当前2-3秒，目标<1秒"
+  }
+}
+```
+
+向量数据库专家收到并处理：
+
+向量数据库专家的LLM分析：
+"性能优化方案：
+
+1. 使用HNSW索引（已启用）
+2. 减少top_k（从5降到3）
+3. 批量嵌入（优化）
+4. 增加相似度阈值（过滤低相关结果）"
+
+向量数据库专家回复给Python专家：
+
+```json
+{
+  "message_type": "TASK_RESPONSE",
+  "from_agent": "agent_201_vector_db_expert",
+  "to_agent": "agent_202_python_expert",
+  "response": {
+    "optimizations": [
+      "1. 减少top_k从5到3",
+      "2. 增加similarity_threshold到0.75",
+      "3. 使用批量嵌入",
+      "4. 添加结果缓存"
+    ],
+    "code_example": `
+# 优化后的检索方法
+def retrieve(self, query: str, top_k: int = 3) -> List[Dict]:
+    query_embedding = self.embedding_model.encode([query]).tolist()
+
+    results = self.collection.query(
+        query_embeddings=query_embedding,
+        n_results=top_k,
+        where_document={"$or": [
+            {"content": {"$gt": 0.75}}  # 相似度过滤
+        ]}
+    )
+
+    # 只返回相似度>0.75的结果
+    filtered_results = [
+        r for r in results
+        if r['distance'] < 0.25  # cosine distance
+    ]
+
+    return filtered_results
+    `
+  }
+}
+```
+
+Python专家收到建议并实施：
+
+```python
+# 应用优化
+def ask_optimized(self, query: str) -> Dict:
+    # 缓存检查
+    if query in self.answer_cache:
+        return self.answer_cache[query]
+
+    # 检索（top_k=3）
+    retrieved_docs = self.vector_retrieval.retrieve(query, top_k=3)
+
+    # ... 其余逻辑
+
+    # 缓存结果
+    self.answer_cache[query] = result
+
+    return result
+```
+
+测试结果：从2.5秒降到0.8秒 ✅
+
+Python专家发送感谢：
+```json
+{
+  "message_type": "STATUS_UPDATE",
+  "from_agent": "agent_202_python_expert",
+  "to_agent": "agent_201_vector_db_expert",
+  "message": "优化成功！响应时间从2.5秒降到0.8秒。"
+}
+```
+
+#### Step 7: 前端界面开发
+
+**前端专家执行task_006**：
+
+```
+2025-01-09 09:00 - 前端专家收到任务
+
+前端专家的LLM分析：
+"需要使用Streamlit开发Web界面
+功能：
+1. 文档上传
+2. 问答输入
+3. 结果展示（答案+引用）
+
+我的技能：
+- Streamlit
+- Python UI设计"
+
+前端专家开始编码：
+
+```python
+# web_ui.py
+
+import streamlit as st
+from llm_integration import KnowledgeBaseQA
+
+# 页面配置
+st.set_page_config(
+    page_title="本地知识库导览机器人",
+    page_icon="📚",
+    layout="wide"
+)
+
+# 初始化
+@st.cache_resource
+def init_qa_system():
+    return KnowledgeBaseQA()
+
+qa_system = init_qa_system()
+
+# 侧边栏
+with st.sidebar:
+    st.title("📚 本地知识库")
+    st.markdown("---")
+
+    # 文档上传
+    st.subheader("1. 上传文档")
+    uploaded_files = st.file_uploader(
+        "上传PDF或Markdown文件",
+        type=['pdf', 'md', 'txt'],
+        accept_multiple_files=True
+    )
+
+    if st.button("处理文档"):
+        if uploaded_files:
+            with st.spinner("正在处理文档..."):
+                file_paths = [f.name for f in uploaded_files]
+                qa_system.add_documents(file_paths)
+            st.success(f"已处理 {len(uploaded_files)} 个文档")
+
+    st.markdown("---")
+    st.subheader("统计信息")
+    if st.session_state.get('docs_processed'):
+        st.metric("文档数量", st.session_state['doc_count'])
+
+# 主区域
+st.title("💬 知识库问答")
+
+# 问答区域
+query = st.text_area(
+    "输入你的问题",
+    placeholder="例如：什么是机器学习？",
+    height=100
+)
+
+if st.button("提问", type="primary"):
+    if query:
+        with st.spinner("正在思考..."):
+            result = qa_system.ask(query)
+
+        # 显示答案
+        st.subheader("📖 答案")
+        st.write(result['answer'])
+
+        # 显示引用
+        st.subheader("📎 来源引用")
+        for i, citation in enumerate(result['citations'], 1):
+            with st.expander(f"来源 {i}"):
+                st.write(f"**文件**: {citation['source']}")
+                if citation['page'] != 'N/A':
+                    st.write(f"**页码**: {citation['page']}")
+                if citation['chapter'] != 'N/A':
+                    st.write(f"**章节**: {citation['chapter']}")
+    else:
+        st.warning("请输入问题")
+
+# 示例问题
+st.markdown("---")
+st.subheader("💡 示例问题")
+example_queries = [
+    "这个文档主要讲了什么？",
+    "如何处理PDF文件？",
+    "向量检索的原理是什么？"
+]
+
+for query in example_queries:
+    if st.button(query):
+        st.session_state['query_input'] = query
+        st.rerun()
+```
+
+2025-01-10 17:00 - 前端专家完成
+产出：web_ui.py（完整实现）
+发送STATUS_UPDATE
+```
+
+#### Step 8: 集成测试
+
+**测试专家执行task_007**：
+
+```
+2025-01-10 18:00 - 测试专家收到所有模块
+
+测试专家的LLM分析：
+"需要测试完整的功能
+测试场景：
+1. 文档上传和处理
+2. 单问题查询
+3. 批量查询
+4. 边界情况
+5. 性能测试"
+
+测试专家编写测试用例：
+
+```python
+# test_knowledge_base.py
+
+import unittest
+from llm_integration import KnowledgeBaseQA
+import os
+
+class TestKnowledgeBase(unittest.TestCase):
+    def setUp(self):
+        self.qa = KnowledgeBaseQA()
+        self.test_files = [
+            "tests/sample_doc.pdf",
+            "tests/sample_doc.md"
+        ]
+
+    def test_document_processing(self):
+        """测试文档处理"""
+        self.qa.add_documents(self.test_files)
+        # 检查是否成功添加
+        self.assertTrue(len(self.qa.vector_retrieval.collection.get()) > 0)
+
+    def test_single_query(self):
+        """测试单次查询"""
+        result = self.qa.ask("什么是Python?")
+        self.assertIn('answer', result)
+        self.assertIn('citations', result)
+        self.assertTrue(len(result['answer']) > 0)
+
+    def test_citation_format(self):
+        """测试引用格式"""
+        result = self.qa.ask("测试问题")
+        citations = result['citations']
+        for citation in citations:
+            self.assertIn('source', citation)
+
+    def test_performance(self):
+        """测试性能"""
+        import time
+        start = time.time()
+        result = self.qa.ask("性能测试")
+        elapsed = time.time() - start
+        self.assertLess(elapsed, 2.0)  # 应该<2秒
+
+    def test_out_of_scope_question(self):
+        """测试超出范围的问题"""
+        result = self.qa.ask("法国的首都是哪里？")
+        self.assertIn("没有找到", result['answer'])
+```
+
+运行测试...
+
+测试结果：
+```
+test_document_processing ... PASSED
+test_single_query ... PASSED
+test_citation_format ... PASSED
+test_performance ... PASSED (1.2秒)
+test_out_of_scope_question ... PASSED
+
+Ran 5 tests in 8.2s
+
+OK
+```
+
+2025-01-11 17:00 - 测试专家完成
+产出：TEST_REPORT.md
+发送STATUS_UPDATE
+```
+
+#### Step 9: 项目经理汇总
+
+```
+2025-01-11 18:00 - 项目经理汇总所有成果
+
+所有任务完成：
+✅ task_001: 需求文档
+✅ task_002: 架构文档
+✅ task_003: 文档处理模块
+✅ task_004: 向量检索模块
+✅ task_005: LLM集成模块
+✅ task_006: Streamlit界面
+✅ task_007: 功能测试
+
+项目经理生成最终交付包：
+
+```json
+{
+  "project": "本地知识库导览机器人",
+  "status": "COMPLETED",
+  "delivery": {
+    "source_code": [
+      "document_processor.py",
+      "vector_retrieval.py",
+      "llm_integration.py",
+      "web_ui.py",
+      "main.py"
+    ],
+    "documentation": [
+      "PRD.md（产品需求文档）",
+      "ARCHITECTURE.md（架构文档）",
+      "README.md（使用指南）",
+      "TEST_REPORT.md（测试报告）"
+    ],
+    "requirements": "requirements.txt",
+    "demo_data": "sample_docs/"
+  },
+  "performance": {
+    "query_response_time": "0.8秒",
+    "document_processing_time": "文档大小 * 0.1秒",
+    "accuracy": "85%（基于测试集）"
+  },
+  "usage": {
+    "install": "pip install -r requirements.txt",
+    "run": "streamlit run web_ui.py",
+    "example": "上传PDF文档，输入问题，查看答案"
+  }
+}
+```
+
+项目经理发送给总经理
+```
+
+#### Step 10: 总经理交付给用户
+
+```
+2025-01-11 18:30 - 总经理收到项目完成通知
+
+总经理审核所有产出：
+✅ 功能完整
+✅ 性能达标
+✅ 文档齐全
+✅ 测试通过
+
+总经理生成最终交付：
+
+```json
+{
+  "delivery_id": "delivery_001",
+  "user_task_id": "user_task_001",
+  "project": "本地知识库导览机器人",
+  "status": "DELIVERED",
+  "delivery_date": "2025-01-11T18:30:00Z",
+
+  "what_you_get": {
+    "software": "完整可运行的知识库问答系统",
+    "source_code": "所有Python源代码",
+    "documentation": "完整的技术文档和用户手册",
+    "tests": "测试用例和测试报告"
+  },
+
+  "how_to_use": {
+    "step1": "安装依赖：pip install -r requirements.txt",
+    "step2": "启动系统：streamlit run web_ui.py",
+    "step3": "上传PDF/MD文档",
+    "step4": "输入问题，查看答案和引用"
+  },
+
+  "features": [
+    "✅ 支持PDF和Markdown文档",
+    "✅ 语义检索（向量搜索）",
+    "✅ 准确答案（基于Claude LLM）",
+    "✅ 来源引用（文件名、页码、章节）",
+    "✅ 简洁的Web界面",
+    "✅ 本地运行（保护隐私）"
+  ],
+
+  "performance": {
+    "响应时间": "0.8秒/问题",
+    "支持文档数": "1000+个PDF",
+    "准确率": "85%"
+  },
+
+  "team": [
+    "总经理",
+    "项目经理",
+    "产品经理",
+    "技术经理",
+    "文档专家",
+    "向量数据库专家",
+    "Python专家",
+    "前端专家",
+    "测试专家"
+  ],
+
+  "timeline": {
+    "start": "2025-01-05",
+    "end": "2025-01-11",
+    "duration": "7天"
+  }
+}
+```
+
+总经理将交付文件写入：
+`user_tasks/deliveries/user_task_001_delivery.json`
+
+用户收到通知：
+"你的任务已完成！请查看 user_tasks/deliveries/"
+```
+
+#### Step 11: 用户使用系统
+
+```
+用户打开系统：
+
+$ pip install -r requirements.txt
+$ streamlit run web_ui.py
+
+浏览器打开：http://localhost:8501
+
+【界面操作】
+
+1. 上传文档
+上传：research_paper.pdf, technical_docs.md
+
+系统显示：
+✅ 已处理 2 个文档
+
+2. 输入问题
+用户输入："这个研究论文主要讲了什么？"
+
+系统处理：
+- 文档专家提取文本（已在步骤5完成）
+- 向量数据库专家检索相关片段（0.3秒）
+- LLM生成答案（0.5秒）
+
+系统输出：
+📖 答案：
+根据研究论文，主要讨论了深度学习在自然语言处理中的应用。
+具体包括：
+
+1. Transformer架构的创新（文档片段 1）
+2. 预训练模型的优势（文档片段 2）
+3. 在下游任务中的表现（文档片段 3）
+
+📎 来源引用：
+【来源 1】
+文件：research_paper.pdf
+页码：3
+章节：1. Introduction
+
+【来源 2】
+文件：research_paper.pdf
+页码：15
+章节：3. Methodology
+
+【来源 3】
+文件：technical_docs.md
+章节：Deep Learning Overview
+
+3. 继续提问
+用户输入："Transformer的核心创新是什么？"
+
+系统输出：
+📖 答案：
+Transformer的核心创新是自注意力机制（Self-Attention），
+具体包括：
+
+1. 多头注意力（Multi-Head Attention）
+2. 位置编码（Positional Encoding）
+3. 并行计算能力
+
+相比RNN，Transformer能够：
+- 更好地捕捉长距离依赖
+- 并行处理整个序列
+- 提升训练效率
+
+📎 来源引用：
+【来源 1】
+文件：research_paper.pdf
+页码：8
+章节：2.2 Self-Attention Mechanism
+...
+```
+
+---
+
+## 7. 系统特性
+
+### 7.1 核心优势
+
+| 特性 | 说明 | 优势 |
+|------|------|------|
+| **自动化** | 无需手动协调，AI自动组织团队 | 节省90%协调时间 |
+| **专业化** | 每个环节都是专业Agent处理 | 质量稳定可靠 |
+| **可视化** | 全程可视化，随时查看进度 | 过程透明可追溯 |
+| **可扩展** | 添加新Agent无需修改核心代码 | 灵活适应各种需求 |
+| **异步友好** | Agent可以离线参与 | 降低系统复杂度 |
+| **本地优先** | 保护隐私，数据不上传 | 符合企业安全要求 |
+
+### 7.2 适用场景
+
+**非常适合**：
+- ✅ 复杂任务（需要多个专业领域）
+- ✅ 重复性任务（可以模板化）
+- ✅ 长周期项目（需要持续协调）
+- ✅ 多步骤流程（需要严格顺序）
+- ✅ 专业性要求高（需要专家知识）
+
+**不太适合**：
+- ❌ 简单任务（用单一AI工具更快）
+- ❌ 实时任务（需要秒级响应）
+- ❌ 需要真人判断（道德、法律决策）
+
+### 7.3 与传统方案对比
+
+| 维度 | 手工方式 | 单一AI工具 | AgentTalk |
+|------|---------|-----------|----------|
+| **任务分解** | 手动拆解 | 无法拆解 | 自动分解 |
+| **专业分工** | 找专业人士 | 全能但不专 | 50+专业Agent |
+| **进度监控** | 手动跟进 | 无 | 自动监控 |
+| **质量保证** | 人工审查 | 无保证 | 多Agent审查 |
+| **时间成本** | 几周到几个月 | 几分钟（但质量低） | 几小时到几天 |
+| **学习成本** | 高 | 低 | 无 |
+
+---
+
+## 8. 设计原则
+
+### 原则1：简单优于复杂
+
+> 能用简单方案解决的，绝不用复杂方案
+
+示例：
+- 文件通信 vs 消息队列 → 选择文件通信（更简单）
+- 固定权限 vs 动态权限 → 选择固定权限（更清晰）
+
+### 原则2：异步优先
+
+> 不要求实时响应，允许延迟和离线
+
+示例：
+- 会议可以跨天完成
+- Agent可以离线参与
+- 消息可以异步处理
+
+### 原则3：可扩展性第一
+
+> 添加新Agent、新技能、新标签应该很简单
+
+示例：
+- 添加新Agent：只需创建配置文件
+- 添加新技能：在profile中声明
+- 添加新标签：更新标签库
+
+### 原则4：清晰优于灵活
+
+> 职责边界清晰，不要模糊地带
+
+示例：
+- 谁能召集会议？有召集技能的Agent
+- 谁能分配任务？有分配技能的Agent
+- 没有歧义
+
+### 原则5：失败是常态
+
+> 系统必须能处理失败，而不是假设一切顺利
+
+示例：
+- Agent可能离线 → 超时检测
+- 消息可能丢失 → 重试机制
+- 任务可能失败 → 恢复和重试
+
+---
+
+## 总结
+
+**AgentTalk是什么？**
+
+一个通用的多AI智能体协作平台，让任务自动化变得简单。
+
+**如何工作？**
+
+1. 用户提交任务
+2. 总经理接收并理解需求
+3. 召集会议，制定计划
+4. 分配任务给合适的Agent
+5. Agent执行任务（遇到问题求助）
+6. 项目经理监控进度
+7. 产出最终成果
+
+**核心机制？**
+
+- 文件通信（简单、可靠）
+- 会议协商（灵活、智能）
+- 求助机制（协作、解耦）
+- 路由系统（高效、可扩展）
+
+**适合什么？**
+
+任何复杂的多步骤任务，特别是需要多个专业领域的任务。
+
+**下一步？**
+
+- 从3-5个Agent的MVP开始
+- 逐步扩展到50-100个Agent
+- 持续优化和迭代
+
+---
+
+**文档版本**：v1.0 Final
+**最后更新**：2025-01-05
+**作者**：AgentTalk设计团队
