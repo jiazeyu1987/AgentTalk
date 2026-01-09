@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "plan_a3f5b2c8",
+  "deadletter_id": "dlq_20250108T104000Z_0001",
+  "created_at": "2025-01-08T10:40:00Z",
+  "reason": {
+    "code": "SCHEMA_INVALID",
+    "message": "JSON parse failed or schema_version unsupported."
+  },
+  "original": {
+    "file_name": "cmd_task_003_001.json",
+    "message_id": null,
+    "producer_agent_id": "agent_backend_developer"
+  },
+  "actions": {
+    "retriable": false,
+    "suggested_next": "alert"
+  }
+}

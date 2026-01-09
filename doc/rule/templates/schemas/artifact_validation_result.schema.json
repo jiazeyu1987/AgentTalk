@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenttalk.local/schemas/artifact_validation_result.schema.json",
+  "title": "ArtifactValidationResult",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "plan_id", "validation_id", "validator_agent_id", "validated_at", "subject", "score", "decision"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "validation_id": { "type": "string", "minLength": 1 },
+    "validator_agent_id": { "type": "string", "minLength": 1 },
+    "validated_at": { "type": "string", "format": "date-time" },
+    "subject": { "type": "object", "additionalProperties": true },
+    "score": { "type": "number", "minimum": 0, "maximum": 100 },
+    "decision": { "type": "string", "enum": ["PASS", "REJECT"] },
+    "criteria": { "type": ["object", "null"], "additionalProperties": true },
+    "evidence": { "type": ["object", "null"], "additionalProperties": true },
+    "issues": { "type": ["array", "null"], "items": { "type": "object", "additionalProperties": true } },
+    "next_action": { "type": ["object", "null"], "additionalProperties": true }
+  }
+}
+

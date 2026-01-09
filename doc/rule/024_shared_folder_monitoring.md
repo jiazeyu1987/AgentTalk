@@ -1,4 +1,4 @@
-# 公用文件夹和状态监控机制
+# 系统路由与状态监控机制
 
 **原则ID**: PR-024
 **来源文档**: shared_folder_monitoring.md
@@ -8,79 +8,100 @@
 
 ## 原则描述
 
-系统维护一个公用文件夹，用于存储验证后的安全有效文件。有权限的Agent可以向这个文件夹的plan_id子文件夹写入文件。同时，每个Agent通过心跳向该文件夹的agent_status子目录写入状态，实现集中式监控。
+系统运行一个具备跨目录权限的**系统路由与监控程序**（下称“系统程序”），负责：
 
-## 全局配置
+1. **文件路由投递**：根据任务文件（DAG方案/路由表）将各Agent `outbox/<plan_id>/` 中的文件投递到目标Agent `inbox/<plan_id>/`（见PR-001/PR-002/PR-003）。
+2. **集中式状态与进度**：采集各Agent状态与任务进度，形成全局可观测视图，支持告警、归档与审计（见PR-010/PR-017/PR-025）。
+3. **产物收集与归档**：收集“验证后的产物/最终交付物”，统一落盘到系统归档区，避免引入可被多个Agent直接读写的共享目录。
+
+同时系统程序应实现“文件即消息”的可靠性增强：
+- **原子投递**：复制到目标目录时先写临时文件再原子重命名，避免下游读到半写入文件（见PR-001）。
+- **去重与幂等**：按 `message_id/idempotency_key + sha256` 去重，防止重复投递/重复处理。
+- **投递日志**：记录每次投递的delivery_id、来源/目标、时间、哈希，便于审计与重放（见PR-017）。
+- **回执汇总**：可收集 `ack_<message_id>.json`，形成端到端“已投递/已处理”视图（见PR-001/PR-025）。
+- **死信隔离**：将不可解析/不符合schema的消息隔离到deadletter并告警（见PR-010）。
+
+## 全局配置（示例）
 
 ### 配置文件位置
 
-**路径**: `用户文件夹/AgentFolder/config.json`
+**路径**: `用户文件夹/AgentFolder/system_config.json`
 
 ### 配置文件格式
 
 ```json
 {
-  "shared_folder_path": "/path/to/shared/folder",
-  "authorized_agents": [
-    "agent_testing_engineer",
-    "agent_documentation_controller"
-  ],
+  "agents_root": "/path/to/agents/root",
+  "system_runtime_path": "/path/to/agenttalk/system_runtime",
+  "router": {
+    "enabled": true,
+    "poll_interval_seconds": 2
+  },
   "monitoring": {
     "enabled": true,
-    "heartbeat_interval": 60
+    "heartbeat_interval_seconds": 60,
+    "stale_heartbeat_multiplier": 2
+  },
+  "artifact_collection": {
+    "enabled": true,
+    "trusted_validators": ["agent_testing_engineer", "agent_documentation_controller"]
   }
 }
 ```
 
-### 配置字段说明
+### 配置字段说明（要点）
 
-#### shared_folder_path
+#### agents_root
 
-公用文件夹的完整路径。
+所有Agent根目录（系统程序用于扫描每个Agent的inbox/outbox与状态文件）。
 
-**格式**: 绝对路径字符串
+#### system_runtime_path
 
-**示例**: `"/home/user/AgentTalk/shared"`
+系统程序的运行目录（全局状态、投递记录、归档产物等都写在这里；Agent无需读写）。
 
-#### authorized_agents
+#### artifact_collection.trusted_validators
 
-有权限向公用文件夹写入文件的Agent列表。
+被信任的“验证者Agent”列表。系统程序只会将这些Agent产出的“已验证产物”归档为最终交付物（配合PR-022/PR-017）。
 
-**格式**: Agent ID数组
-
-**示例**:
-```json
-[
-  "agent_testing_engineer",
-  "agent_documentation_controller",
-  "agent_quality_assurance"
-]
-```
-
-**权限定义**: 带验证功能的Agent，从这些Agent出来的文件是安全有效的。
-
-#### monitoring
-
-监控配置。
-
-- **enabled**: 是否启用状态监控
-- **heartbeat_interval**: 心跳写入间隔（秒）
-
-## 公用文件夹结构
+## 系统运行目录结构（示例）
 
 ### 目录组织
 
 ```
-shared_folder_path/
-├── <plan_id>/
-│   ├── validated_*.md           # 验证后的文档
-│   ├── approved_*.json          # 审批通过的文件
-│   ├── tested_*.json            # 测试通过的文件
-│   └── ...                     # 其他验证后的文件
-└── agent_status/
-    ├── agent_001.json           # Agent状态文件
-    ├── agent_002.json
-    └── ...
+system_runtime/
+├── plans/
+│   └── <plan_id>/
+│       ├── task_dag.json            # DAG/路由表（来自规划者，如GM）
+│       ├── plan_manifest.json       # 本plan涉及的Agent/任务清单（可选）
+│       ├── plan_status.json         # 汇总进度（系统生成）
+│       └── deliveries.jsonl         # 投递日志（每行一条；见 delivery_log_entry.json）
+├── deadletter/
+│   └── <plan_id>/                   # 无法投递/无法解析/超限重试的消息（系统生成）
+├── alerts/
+│   └── <plan_id>/                   # 告警文件（系统生成，可供Human Gateway处理）
+├── agent_status/
+│   ├── <agent_id>.json              # 最新状态快照（系统生成）
+│   └── ...
+└── artifacts/
+    └── <plan_id>/
+        └── ...                      # 归档产物（系统生成）
+
+模板参考：
+- `doc/rule/templates/alert.json`
+- `doc/rule/templates/deadletter_entry.json`
+- `doc/rule/templates/delivery_state_machine.md`
+- `doc/rule/templates/schema_versioning.md`
+- `doc/rule/templates/delivery_log_entry.json`
+- `doc/rule/templates/routing_priority.md`
+- `doc/rule/templates/replay_procedure.md`
+- `doc/rule/templates/dag_review_result.json`
+- `doc/rule/templates/artifact_validation_result.json`
+- `doc/rule/templates/build_validation_result.json`
+- `doc/rule/templates/deploy_validation_result.json`
+- `doc/rule/templates/smoke_test_result.json`
+- `doc/rule/templates/e2e_test_result.json`
+- `doc/rule/templates/security_scan_result.json`
+- `doc/rule/templates/release_manifest.json`
 ```
 
 ### plan_id子文件夹
@@ -91,7 +112,7 @@ shared_folder_path/
 
 **示例**:
 ```
-shared_folder_path/
+system_runtime/artifacts/
 ├── plan_develop_ecommerce/
 │   ├── approved_requirements.md
 │   └── tested_backend_code.json
@@ -108,29 +129,14 @@ shared_folder_path/
 
 **用途**: 集中式监控所有Agent的状态
 
-## 文件写入权限
+## 权限与隔离
 
 ### 有权限的Agent
 
-只有被授权的Agent可以向公用文件夹写入文件。
+系统程序具备跨目录读写权限；普通Agent只读写自己的目录（见PR-003）。因此：
 
-**授权标准**:
-- 带验证功能的Agent
-- 输出经过验证的文件
-- 例如：
-  - 测试Agent (agent_testing_engineer)
-  - 文控Agent (agent_documentation_controller)
-  - 质量保证Agent (agent_quality_assurance)
-
-### 权限验证
-
-Agent在写入前验证权限：
-
-```python
-def can_write_to_shared_folder(agent_id):
-    config = load_global_config()
-    return agent_id in config.get('authorized_agents', [])
-```
+- Agent之间不需要也不允许直接共享目录
+- 任何跨Agent的文件投递与集中式状态汇总，均由系统程序完成
 
 ### 文件命名规范
 
@@ -149,13 +155,14 @@ tested_backend_code.json
 reviewed_user_stories.json
 ```
 
-## Agent状态监控
+## Agent状态与进度采集
 
 ### 状态文件格式
 
-每个Agent在每次心跳时写入状态文件。
+系统程序以“只读”方式采集Agent状态，数据来源推荐二选一或同时使用：
 
-**文件位置**: `shared_folder_path/agent_status/agent_<agent_id>.json`
+1. 读取Agent目录下的 `agent_state.json`（见PR-008）
+2. 读取Agent在 `outbox/<plan_id>/` 输出的状态快照文件（例如 `status_heartbeat.json` / `task_state.json`）
 
 **文件内容**:
 ```json
@@ -247,34 +254,13 @@ Agent运行时长（秒）。
 
 最后的错误信息（如果有）。
 
-### 心跳写入
+系统程序将采集到的状态汇总为 `system_runtime/agent_status/<agent_id>.json`，并可进一步汇总成 `system_runtime/plans/<plan_id>/plan_status.json`。
 
-Agent每次心跳时更新状态文件。
-
-**写入流程**:
-1. Agent收集当前状态
-2. 构造状态JSON
-3. 写入到 `shared_folder_path/agent_status/agent_<agent_id>.json`
-4. 更新last_heartbeat时间
-
-**写入间隔**: 由全局配置的heartbeat_interval指定，默认60秒
-
-## 状态监控
+## 监控与告警（要点）
 
 ### 监控方式
 
-监控程序扫描`agent_status/`目录：
-
-```python
-def monitor_agents():
-    status_folder = os.path.join(shared_folder_path, "agent_status")
-
-    for status_file in glob.glob(f"{status_folder}/agent_*.json"):
-        with open(status_file) as f:
-            status = json.load(f)
-            # 分析状态
-            check_agent_status(status)
-```
+系统程序根据心跳超时、任务长期无进展、资源超限等条件触发告警；告警可以落盘到 `system_runtime/alerts/` 或转发到人工介入通道（见PR-010/PR-025）。
 
 ### 监控检查项
 
@@ -318,43 +304,14 @@ def monitor_agents():
 }
 ```
 
-## 文件隔离
+## 产物收集与归档（要点）
 
 ### Plan级别隔离
 
-通过plan_id子文件夹实现不同plan的文件隔离：
+系统程序按plan归档最终产物到 `system_runtime/artifacts/<plan_id>/`。是否视为“最终产物”可通过以下方式定义：
 
-```
-shared_folder_path/
-├── plan_develop_ecommerce/
-│   └── approved_requirements.md
-└── plan_develop_mobile_app/
-    └── approved_requirements.md
-```
-
-**好处**:
-- 不同plan的文件互不干扰
-- 可以单独清理某个plan的文件
-- 便于按plan查找文件
-
-### 文件覆盖策略
-
-如果同一plan中存在同名文件：
-
-**原则**: 后写入覆盖先写入
-
-**示例**:
-```
-plan_develop_ecommerce/
-├── approved_requirements.md  (version 1, 10:00)
-└── approved_requirements.md  (version 2, 11:00, 覆盖version 1)
-```
-
-**建议**: 在文件名中包含版本或时间戳
-```
-approved_requirements_v2.md
-approved_requirements_20250108_1100.md
-```
+- 由任务文件（DAG方案）明确指定某些输出为“deliverable”
+- 或由受信任验证者Agent产出并加上标准化前缀/元数据（例如 `validated_`/`tested_`）
 
 ## 安全考虑
 
@@ -381,13 +338,13 @@ approved_requirements_20250108_1100.md
 
 ### 审计追踪
 
-所有写入操作记录到日志：
+系统程序的关键写入/投递操作记录到日志：
 
 ```json
 {
   "event": "FILE_WRITTEN",
   "agent_id": "agent_testing_engineer",
-  "file_path": "shared_folder/plan_xxx/tested_code.json",
+  "file_path": "system_runtime/artifacts/plan_xxx/tested_code.json",
   "timestamp": "2025-01-08T10:30:00Z",
   "file_hash": "sha256:..."
 }
@@ -395,20 +352,17 @@ approved_requirements_20250108_1100.md
 
 ## 关键要点
 
-- **全局配置**: 从用户文件夹/AgentFolder/config.json读取配置
-- **权限控制**: 只有授权Agent可以写入公用文件夹
-- **Plan隔离**: 通过plan_id子文件夹防止互相干扰
-- **状态监控**: 所有Agent写入状态到agent_status/
-- **心跳机制**: 定期更新状态，便于监控
-- **标准化命名**: 使用validated、approved、tested等前缀
-- **集中监控**: 监控agent_status/目录实现全局监控
+- **系统中介**: 文件投递/状态汇总由系统程序完成（Agent不跨目录）
+- **路由可计算**: 任务文件（DAG方案）同时定义依赖与投递规则
+- **无共享目录**: 不引入可被多个Agent直接读写的共享文件夹
+- **集中可观测**: 系统生成全局状态与投递日志，支持告警与审计
 
 ## 与其他原则的配合
 
 ### 与PR-001（inbox/outbox文件传递）配合
 
 - inbox/outbox用于Agent间通信
-- 公用文件夹用于存储验证后的全局文件
+- 系统程序负责跨Agent投递与集中归档
 
 ### 与PR-017（日志追踪）配合
 
@@ -417,8 +371,8 @@ approved_requirements_20250108_1100.md
 
 ### 与PR-022（链式验证机制）配合
 
-- 验证通过的文件写入公用文件夹
-- 后续Agent从公用文件夹读取验证后的文件
+- 验证通过的文件由系统程序归档为最终产物
+- 后续Agent继续通过inbox/outbox接收验证者的输出文件
 
 ---
 

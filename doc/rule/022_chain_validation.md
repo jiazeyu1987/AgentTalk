@@ -8,14 +8,14 @@
 
 ## 原则描述
 
-Agent的任务完成结果不需要自己验证，由后续的Agent验证。如果验证不通过，后续Agent发送[重新执行]命令给前面的Agent。
+Agent的任务完成结果不需要自己验证，由后续的Agent验证。如果验证不通过，后续Agent通过inbox/outbox机制触发前序任务重新执行。
 
 ## 核心思想
 
 **简化职责，链式保证**:
 - Agent A完成任务，不自己验证结果
 - Agent B使用Agent A的输出，验证时发现问题
-- Agent B发送[重新执行]命令给Agent A
+- Agent B发起[重新执行]命令（写入自己的outbox，由系统路由程序投递到Agent A的inbox）
 - Agent A重新执行任务
 
 ## 验证流程
@@ -36,16 +36,15 @@ Agent A → 产生输出 → Agent B → 验证失败 → 发送[重新执行]�
 
 ### 命令格式
 
-**命令类型**: `REEXECUTE`
-
-**文件名**: `cmd_reexecute_<task_id>.json`
+**文件名**: `cmd_reexecute_<task_id>.json`（仍然是执行命令文件，只是语义为“重新执行”）
 
 **命令内容**:
 ```json
 {
+  "schema_version": "1.0",
   "command_id": "cmd_reexecute_001",
-  "command_type": "REEXECUTE",
   "plan_id": "plan_develop_ecommerce",
+  "idempotency_key": "plan_develop_ecommerce:task_001:reexecute",
   "original_task_id": "task_001",
   "original_agent": "agent_product_manager",
   "validation_result": {
@@ -58,17 +57,15 @@ Agent A → 产生输出 → Agent B → 验证失败 → 发送[重新执行]�
       "缺少错误处理规范"
     ]
   },
-  "reexecute_prompt": "请补充完善需求文档，特别是API接口定义部分",
+  "prompt": "请补充完善需求文档，特别是API接口定义部分。结合validation_result中的问题列表逐条修复，并重新生成输出。",
   "required_inputs": ["previous_output.json", "validation_feedback.json"],
+  "wait_for_inputs": true,
+  "score_required": false,
   "timeout": 3600
 }
 ```
 
 ### 字段说明
-
-#### command_type
-
-命令类型，固定为`REEXECUTE`。
 
 #### original_task_id
 
@@ -86,7 +83,7 @@ Agent A → 产生输出 → Agent B → 验证失败 → 发送[重新执行]�
 - reason: 验证失败的原因
 - issues: 具体问题列表
 
-#### reexecute_prompt
+#### prompt
 
 重新执行的提示词，指导Agent如何改进。
 
@@ -112,7 +109,7 @@ Agent在使用前一个Agent的输出时，自动触发验证：
    如果发现输出不符合要求，触发验证失败
 
 4. **发送重新执行命令**
-   Agent B发送[重新执行]命令给Agent A
+   Agent B将[重新执行]命令文件写入自己的 `outbox/<plan_id>/`，由系统路由程序投递到Agent A的 `inbox/<plan_id>/`
 
 ### 验证标准
 
@@ -142,7 +139,7 @@ Agent在使用前一个Agent的输出时，自动触发验证：
    了解具体问题和改进建议
 
 3. **重新执行任务**
-   Agent A根据reexecute_prompt和验证反馈重新执行
+   Agent A根据prompt和验证反馈重新执行
 
 4. **标记为重新执行**
    在输出的元数据中标记这是重新执行的结果
@@ -156,8 +153,8 @@ Agent在使用前一个Agent的输出时，自动触发验证：
 
 **超过限制后**:
 - Agent A停止重新执行
-- Agent A返回错误给GM
-- GM介入处理
+- Agent A输出失败状态/错误到outbox
+- 监控系统告警并请求人工介入（见PR-010/PR-024/PR-025）
 
 ## 验证反馈格式
 
@@ -227,6 +224,10 @@ Backend Dev → 代码 → Testing Agent
 Backend Dev修复bug，提高代码质量
 ```
 
+> 推荐将“测试验收结果”落为结构化文件（包含score/decision/issues），并作为交付物是否可归档的依据（见PR-024与模板 `artifact_validation_result.json`）。
+
+对于“需要高置信可运行”的交付，建议将验收扩展为多门禁证据链（构建/部署/冒烟/E2E/安全），并由发布角色汇总为 `release_manifest.json`（见PR-024与templates）。
+
 ### 场景3: 设计图不规范
 
 ```
@@ -254,7 +255,7 @@ Frontend Dev补充响应式设计
 
 - [重新执行]命令也是一种执行命令
 - 遵循统一的命令格式
-- 通过命令标签区分不同类型
+- 通过文件名/字段语义区分“重新执行”场景
 
 ### 与PR-017（日志追踪）配合
 
@@ -264,8 +265,11 @@ Frontend Dev补充响应式设计
 
 ### 与PR-009（任务分配机制）配合
 
-- 验证失败触发重新分配
-- 超过重新执行次数限制时，GM介入重新分配
+- 验证失败触发重新执行
+- 超过重新执行次数限制时，监控系统告警并请求人工介入（可选：由专门的规划者Agent重规划）
+
+模板参考：
+- `doc/rule/templates/artifact_validation_result.json`
 
 ---
 

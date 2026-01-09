@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "plan_a3f5b2c8",
+  "plan_name": "Example plan",
+  "created_at": "2025-01-08T10:00:00Z",
+  "agents": [
+    {
+      "agent_id": "agent_product_manager",
+      "required": true
+    },
+    {
+      "agent_id": "agent_database_expert",
+      "required": true
+    },
+    {
+      "agent_id": "agent_backend_developer",
+      "required": true
+    },
+    {
+      "agent_id": "agent_testing_engineer",
+      "required": false
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "task_001",
+      "assigned_agent_id": "agent_product_manager",
+      "command_id": "cmd_task_001_001",
+      "required_inputs": ["user_request.md"],
+      "expected_outputs": ["requirements.md"]
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "requirements.md",
+      "from_task_id": "task_001",
+      "accept_if": {
+        "validated_by_trusted_validator": true,
+        "evidence_required": [
+          "dag_review_result.json"
+        ]
+      }
+    }
+  ],
+  "policies": {
+    "max_reexecute_times": 3,
+    "timeout_default_seconds": 3600,
+    "on_blocked": "alert",
+    "on_failed": "alert",
+    "release_gates_required": [
+      "build_validation_result.json",
+      "deploy_validation_result.json",
+      "smoke_test_result.json",
+      "e2e_test_result.json",
+      "security_scan_result.json",
+      "release_manifest.json"
+    ]
+  }
+}

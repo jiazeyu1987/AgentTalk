@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenttalk.local/schemas/plan_status.schema.json",
+  "title": "PlanStatus",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "plan_id", "updated_at", "tasks"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "summary": { "type": ["object", "null"], "additionalProperties": true },
+    "blocked_summary": { "type": ["object", "null"], "additionalProperties": true },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["task_id", "state", "updated_at"],
+        "properties": {
+          "task_id": { "type": "string", "minLength": 1 },
+          "state": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "READY",
+              "RUNNING",
+              "BLOCKED_WAITING_INPUT",
+              "BLOCKED_WAITING_REVIEW",
+              "BLOCKED_WAITING_HUMAN",
+              "FAILED",
+              "SKIPPED",
+              "COMPLETED"
+            ]
+          },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "assigned_agent_id": { "type": ["string", "null"] },
+          "attempts": { "type": ["object", "null"], "additionalProperties": true },
+          "blocking": { "type": ["object", "null"], "additionalProperties": true },
+          "outputs": { "type": ["array", "null"], "items": { "type": "object", "additionalProperties": true } }
+        }
+      }
+    },
+    "gates": { "type": ["object", "null"], "additionalProperties": true }
+  }
+}
+

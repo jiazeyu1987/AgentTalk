@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenttalk.local/schemas/dag_review_result.schema.json",
+  "title": "DAGReviewResult",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "plan_id", "review_id", "reviewer_agent_id", "reviewed_at", "score", "decision"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "review_id": { "type": "string", "minLength": 1 },
+    "reviewer_agent_id": { "type": "string", "minLength": 1 },
+    "reviewed_at": { "type": "string", "format": "date-time" },
+    "dag": { "type": ["object", "null"], "additionalProperties": true },
+    "score": { "type": "number", "minimum": 0, "maximum": 100 },
+    "decision": { "type": "string", "enum": ["APPROVE", "REVISE", "REJECT"] },
+    "scores": { "type": ["object", "null"], "additionalProperties": true },
+    "issues": { "type": ["array", "null"], "items": { "type": "object", "additionalProperties": true } },
+    "recommendation": { "type": ["string", "null"] }
+  }
+}
+

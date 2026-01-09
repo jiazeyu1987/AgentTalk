@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "command_id": "cmd_task_001_001",
+  "plan_id": "plan_a3f5b2c8",
+  "task_id": "task_001",
+  "prompt": "Describe what to do, inputs to use, and outputs to produce.",
+  "required_inputs": [
+    "requirements.md",
+    "database_schema.json"
+  ],
+  "wait_for_inputs": true,
+  "score_required": false,
+  "score_criteria": null,
+  "timeout": 3600,
+  "idempotency_key": "plan_a3f5b2c8:task_001:cmd_task_001_001",
+  "on_complete": {
+    "send_to": ["agent_general_manager"],
+    "message_template": "Task completed: {result}"
+  },
+  "on_failure": {
+    "send_to": ["agent_general_manager"],
+    "message_template": "Task failed: {error}"
+  }
+}

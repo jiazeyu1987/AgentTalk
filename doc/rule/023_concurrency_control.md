@@ -81,7 +81,7 @@ Agent完成task_002，处理task_001：
 
 ```
 时间线：
-  t0: GM分配任务
+  t0: 规划者（如GM）在Plan开始时分配任务/投递命令
       task_001 → PM Agent
       task_002 → DB Expert
       task_003 → Backend Dev

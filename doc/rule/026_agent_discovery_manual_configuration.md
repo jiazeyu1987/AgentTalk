@@ -430,7 +430,7 @@ def validate_visibility_list(agent_id):
 ### 与PR-003（安全原则）配合
 
 - visibility_list是实现Agent文件夹隔离的关键机制
-- 确保Agent只能访问可见Agent的文件夹
+- 确保任务只会被分配给“可见”的Agent（文件系统层面的跨目录访问仍然禁止，见PR-003）
 
 ### 与PR-018（visibility_list文件格式）配合
 

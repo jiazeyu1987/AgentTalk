@@ -21,7 +21,7 @@
 
 ### 1. 发送告警
 
-超时后发送告警通知上级Agent：
+超时后发送告警通知监控系统/人工介入通道：
 - 告知超时事件
 - 说明等待的对象
 - 请求人工介入
@@ -32,6 +32,10 @@
 - 每次重试延长超时时间（如1.5倍）
 - 设置最大重试次数（如3次）
 - 记录重试历史
+
+**实现建议（文件级）**：
+- 将“本次重试计数/下次重试时间”记录在任务状态文件中（见PR-017）
+- 将超时/重试产生的告警文件写入 `outbox/<plan_id>/`，由系统程序归档并触发人工介入（见PR-024/PR-025）
 
 ### 3. 降级处理
 
@@ -60,6 +64,24 @@
 - **避免死锁**: 防止Agent无限等待
 - **及时恢复**: 超时后及时采取恢复措施
 - **资源释放**: 失败后及时释放相关资源
+
+## 死信与隔离（推荐）
+
+当命令或输入文件出现以下情况时，应避免无限等待或无限重试：
+- JSON无法解析或不符合schema_version
+- required_inputs长期缺失
+- 重试次数超过上限
+
+推荐处理方式：
+- 将问题命令/输入移动到 `inbox/<plan_id>/.deadletter/` 或标记为FAILED
+- 生成一条告警/失败摘要文件到 `outbox/<plan_id>/`
+- 由系统监控程序汇总并请求人工介入（见PR-024/PR-025）
+
+模板参考：
+- `doc/rule/templates/alert.json`
+- `doc/rule/templates/deadletter_entry.json`
+- `doc/rule/templates/delivery_state_machine.md`
+- `doc/rule/templates/human_intervention_request.json`
 
 ---
 

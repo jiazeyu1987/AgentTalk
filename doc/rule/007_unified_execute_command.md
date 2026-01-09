@@ -8,7 +8,9 @@
 
 ## 原则描述
 
-AgentTalk系统中只有一种命令: 执行命令。Agent在输入满足时，将输入内容、Agent自身的提示词、命令的提示词提交给LLM，获取返回值和可选的评分，然后决定向哪些Agent发送哪些信息。
+AgentTalk系统中只有一种命令: 执行命令。Agent在输入满足时，将输入内容、Agent自身的提示词、命令的提示词提交给LLM，获取返回值和可选的评分，然后按任务文件/命令中**预先定义**的投递规则产出文件到outbox。
+
+注意：Agent不直接写其他Agent的inbox（见PR-003）。跨Agent投递由系统路由程序按任务文件（DAG路由表）执行（见PR-002/PR-024）。
 
 ## 命令格式
 
@@ -18,28 +20,43 @@ AgentTalk系统中只有一种命令: 执行命令。Agent在输入满足时，�
 {
   "command_id": "cmd_001",
   "plan_id": "plan_a3f5b2c8",
+  "schema_version": "1.0",
+  "idempotency_key": "plan_a3f5b2c8:task_001:cmd_001",
   "prompt": "命令的提示词描述，告诉Agent要做什么",
   "required_inputs": ["feedback_agent_a.json", "feedback_agent_b.json"],
   "wait_for_inputs": true,
   "score_required": true,
   "score_criteria": "根据共识度和质量评分，范围0-100",
+  "timeout": 3600,
   "on_complete": {
     "send_to": ["agent_general_manager"],
     "message_template": "评估已完成，结果: {result}, 分数: {score}"
+  },
+  "on_failure": {
+    "send_to": ["agent_general_manager"],
+    "message_template": "评估失败，错误: {error}"
   }
 }
 ```
 
+模板参考：
+- `doc/rule/templates/command.cmd.json`
+
 **字段说明**:
 - `command_id`: 命令的唯一标识符
 - `plan_id`: 关联的plan标识符
+- `schema_version`: 命令schema版本，用于兼容性与解析校验
+- `idempotency_key`: 幂等键，用于“重复命令不重复执行”（推荐）
 - `prompt`: 命令的提示词，描述要执行的任务
 - `required_inputs`: 需要的输入文件列表
 - `wait_for_inputs`: 是否等待输入文件齐全(true/false)
 - `score_required`: 是否需要评分(true/false)
 - `score_criteria`: 评分标准描述(仅当score_required=true时)
-- `on_complete.send_to`: 完成后向哪些Agent发送结果
+- `timeout`: 超时时间（秒），用于避免无限等待（见PR-010）
+- `on_complete.send_to`: 完成后结果应投递到哪些Agent（由规划者预先定义；实际投递由系统路由程序完成）
 - `on_complete.message_template`: 结果消息模板，可用{result}和{score}变量
+- `on_failure.send_to`: 失败后结果应投递到哪些Agent
+- `on_failure.message_template`: 失败消息模板，可用{error}变量
 
 ## 工作流程
 
@@ -96,7 +113,11 @@ Agent根据 `on_complete` 定义:
 - 使用 `message_template` 格式化消息
 - 将 `{result}` 替换为实际结果
 - 将 `{score}` 替换为实际分数(如果有)
-- 向 `send_to` 列表中的每个Agent发送消息
+- 将结果文件写入自己的 `outbox/<plan_id>/`，由系统路由程序投递到 `send_to` 列表中的各Agent的 `inbox/<plan_id>/`
+
+为提升可靠性，推荐：
+- 结果文件随附元数据（message_id、sha256、type、idempotency_key），便于系统路由去重与审计（见PR-001/PR-017/PR-024）
+- 采用原子写入（先写`.tmp`再重命名），避免下游读到半写入文件（见PR-001）
 
 ## 两种命令类型
 
@@ -105,7 +126,7 @@ Agent根据 `on_complete` 定义:
 **特点**:
 - `score_required=false`
 - LLM只返回执行结果
-- Agent直接转发结果给目标Agent
+- Agent产出结果文件到outbox，由系统路由投递到目标Agent
 
 **典型应用**:
 - 信息汇总: "收集所有反馈并总结"
@@ -118,7 +139,7 @@ Agent根据 `on_complete` 定义:
 - `score_required=true`
 - 命令的prompt中定义评分标准
 - LLM返回结果和分数
-- Agent可以根据分数决定发送给不同的Agent
+- Agent可以根据分数决定走哪条预先定义的输出分支（例如生成不同的输出文件），投递仍由系统路由程序完成
 
 **评分标准在prompt中定义**:
 ```
@@ -244,6 +265,8 @@ Agent通过轮询机制(见PR-011)工作:
 {
   "command_id": "cmd_review_consensus",
   "plan_id": "plan_project_approval",
+  "schema_version": "1.0",
+  "timeout": 3600,
   "prompt": "检查所有团队成员的评分是否达成共识，如果共识度低于70分，说明分歧原因",
   "required_inputs": ["feedback_*.json"],
   "wait_for_inputs": true,
@@ -252,6 +275,10 @@ Agent通过轮询机制(见PR-011)工作:
   "on_complete": {
     "send_to": ["agent_general_manager"],
     "message_template": "共识检查完成，结果: {result}, 共识度: {score}分"
+  },
+  "on_failure": {
+    "send_to": ["agent_general_manager"],
+    "message_template": "共识检查失败，错误: {error}"
   }
 }
 ```
@@ -261,22 +288,37 @@ Agent通过轮询机制(见PR-011)工作:
 {
   "command_id": "cmd_test_delivery",
   "plan_id": "plan_feature_development",
+  "schema_version": "1.0",
+  "timeout": 3600,
   "prompt": "对开发者交付的代码进行测试，评估通过率，给出0-100分的质量评分",
   "required_inputs": ["delivery_package.zip", "test_spec.json"],
   "wait_for_inputs": true,
   "score_required": true,
+  "score_criteria": "质量评分，0-100分",
   "on_complete": {
     "send_to": ["agent_project_manager"],
     "message_template": "测试完成，通过率: {result}, 质量评分: {score}分"
+  },
+  "on_failure": {
+    "send_to": ["agent_project_manager"],
+    "message_template": "测试失败，错误: {error}"
   }
 }
 ```
+
+**示例4: 专家评审DAG**
+
+将DAG评审作为一个标准执行命令投递给“专家评审角色”，输出结构化打分与修改建议：
+- 评审命令模板：`doc/rule/templates/dag_review_request.cmd.json`
+- 评审结果模板：`doc/rule/templates/dag_review_result.json`
 
 **示例3: 简单汇总(不需要评分)**
 ```json
 {
   "command_id": "cmd_summary_report",
   "plan_id": "plan_weekly_report",
+  "schema_version": "1.0",
+  "timeout": 1800,
   "prompt": "汇总所有Agent的周报，生成一份简洁的团队周报",
   "required_inputs": ["weekly_report_*.json"],
   "wait_for_inputs": true,
@@ -284,6 +326,10 @@ Agent通过轮询机制(见PR-011)工作:
   "on_complete": {
     "send_to": ["agent_general_manager"],
     "message_template": "团队周报已生成: {result}"
+  },
+  "on_failure": {
+    "send_to": ["agent_general_manager"],
+    "message_template": "周报汇总失败，错误: {error}"
   }
 }
 ```

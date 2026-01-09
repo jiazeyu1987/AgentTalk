@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenttalk.local/schemas/deadletter_entry.schema.json",
+  "title": "DeadletterEntry",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "plan_id", "deadletter_id", "created_at", "reason", "original"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "deadletter_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "reason": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "original": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["file_name"],
+      "properties": {
+        "file_name": { "type": "string", "minLength": 1 },
+        "message_id": { "type": ["string", "null"] },
+        "producer_agent_id": { "type": ["string", "null"] }
+      }
+    },
+    "actions": { "type": ["object", "null"], "additionalProperties": true }
+  }
+}
+

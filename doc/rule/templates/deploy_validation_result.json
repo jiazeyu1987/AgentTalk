@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "plan_a3f5b2c8",
+  "validation_id": "deploy_20250108T123000Z_0001",
+  "validator_agent_id": "agent_release_engineer",
+  "validated_at": "2025-01-08T12:30:00Z",
+  "environment": {
+    "name": "staging",
+    "descriptor_files": ["docker-compose.yml", ".env.example"]
+  },
+  "decision": "PASS",
+  "evidence": {
+    "deploy_log_files": ["deploy.log"],
+    "healthcheck_files": ["healthcheck.json"]
+  },
+  "issues": [],
+  "notes": "PASS means clean environment deployment succeeded and healthchecks passed."
+}
+

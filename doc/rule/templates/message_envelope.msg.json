@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "message_id": "msg_20250108T103000Z_0001",
+  "plan_id": "plan_a3f5b2c8",
+  "task_id": "task_001",
+  "command_id": "cmd_task_001_001",
+  "producer_agent_id": "agent_backend_developer",
+  "type": "artifact",
+  "subtype": "backend_package",
+  "created_at": "2025-01-08T10:30:00Z",
+  "idempotency_key": "plan_a3f5b2c8:task_001:backend_package",
+  "payload": {
+    "files": [
+      {
+        "path": "backend_package.zip",
+        "sha256": "sha256:REPLACE_ME",
+        "content_type": "application/zip",
+        "size_bytes": 123456
+      }
+    ]
+  },
+  "routing": {
+    "intended_recipients": ["agent_testing_engineer", "agent_general_manager"]
+  },
+  "correlation": {
+    "trace_id": "uuid-1234567890"
+  },
+  "notes": "This is a template. Replace IDs, hashes, and file metadata."
+}

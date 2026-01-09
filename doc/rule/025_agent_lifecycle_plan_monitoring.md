@@ -8,7 +8,36 @@
 
 ## 原则描述
 
-每个Agent有标准的启动、关闭、重启脚本。监控程序监控agent_status/目录，可以手动重启异常Agent。GM Agent在Plan开始时写入agent_list.json，监控系统可以查看Plan中哪些Agent未启动。
+每个Agent有标准的启动、关闭、重启脚本。系统监控程序采集各Agent状态并汇总成全局视图，可以手动重启异常Agent。规划者（例如GM）在Plan开始时写入plan清单（如agent_list/plan_manifest），监控系统据此判断Plan中哪些Agent未启动、哪些任务阻塞。
+
+在“规划者退出运行期”的模式下，Plan是否完成/是否需要人工介入，主要由监控系统根据 `plan_manifest.json` 与投递/回执/超时信息综合判定（见PR-024/PR-010）。
+
+注意：若Plan启用了“评审关口”（例如DAG评审、交付物测试验收），监控系统应把“评审未通过/待返工”视为阻塞状态，并触发规划者/责任人角色介入处理，而不是静默等待。
+
+## 人类介入（Human Gateway，推荐）
+
+当系统遇到以下情况，单靠Agent无法继续推进时，应通过“人类网关伪Agent”请求人工决策/提供外部资源：
+
+- 缺少关键输入文件（例如环境配置、证书、账号信息）
+- 缺少判定标准（例如验收阈值、风险接受标准）
+- 需要审批/风险接受（例如安全扫描高危发现是否接受）
+- 需要外部环境权限（例如访问生产、开通云资源）
+
+### 目录约定
+
+将“人”抽象为一个伪Agent：`agent_human_gateway`。
+
+- 人只操作：`agents/agent_human_gateway/inbox/` 与 `agents/agent_human_gateway/outbox/`
+- 系统路由程序负责将请求投递到该inbox，并将人提供的文件/决策再投递到目标Agent inbox（见PR-024）
+
+### 请求/响应文件
+
+- 请求：`human_intervention_request.json`（投递到 `agent_human_gateway/inbox/<plan_id>/`）
+- 响应：`human_intervention_response.json`（人写入 `agent_human_gateway/outbox/<plan_id>/`）
+
+模板参考：
+- `doc/rule/templates/human_intervention_request.json`
+- `doc/rule/templates/human_intervention_response.json`
 
 ## Agent目录结构
 
@@ -135,16 +164,21 @@ echo Agent restarted!
 - **重用脚本**: 复用start.bat和stop.bat
 - **状态反馈**: 显示重启状态
 
-## GM Agent写入agent_list.json
+## 规划者写入plan_manifest.json
 
 ### 写入时机
 
-GM Agent在Plan开始时写入agent_list.json。
+规划者在Plan开始时写入plan_manifest.json。
 
 ### 文件位置
 
 ```
-shared_folder_path/plan_id/agent_list.json
+（推荐）规划者（例如GM）的 `outbox/<plan_id>/plan_manifest.json`
+（系统汇总后）`system_runtime/plans/<plan_id>/plan_manifest.json`
+
+模板参考：
+- `doc/rule/templates/plan_manifest.json`
+- `doc/rule/templates/delivery_state_machine.md`
 ```
 
 ### 文件格式
@@ -154,6 +188,7 @@ shared_folder_path/plan_id/agent_list.json
   "plan_id": "plan_develop_ecommerce",
   "plan_name": "开发电商网站",
   "created_at": "2025-01-08T10:00:00Z",
+  "deliverables": ["validated_requirements.md", "tested_backend_package.zip"],
   "agents": [
     {
       "agent_id": "agent_001_product_manager",
@@ -214,15 +249,15 @@ Plan创建时间。
 
 监控程序监控两个文件：
 
-1. **agent_list.json**: 查看Plan中哪些Agent应该启动
-2. **agent_status/**: 查看哪些Agent实际运行
+1. **plan_manifest.json**: 查看Plan中哪些Agent应该启动
+2. **system_runtime/agent_status/**: 查看哪些Agent实际运行
 
 ### 监控逻辑
 
 ```python
 def monitor_plan(plan_id):
-    # 读取agent_list.json
-    agent_list_file = os.path.join(shared_folder_path, plan_id, "agent_list.json")
+    # 读取plan_manifest.json（系统汇总后的拷贝）
+    agent_list_file = os.path.join(system_runtime_path, "plans", plan_id, "plan_manifest.json")
 
     with open(agent_list_file) as f:
         agent_list = json.load(f)
@@ -233,7 +268,7 @@ def monitor_plan(plan_id):
         required = agent_info['required']
 
         # 读取Agent状态
-        status_file = os.path.join(shared_folder_path, "agent_status", f"agent_{agent_id}.json")
+        status_file = os.path.join(system_runtime_path, "agent_status", f"{agent_id}.json")
 
         if not os.path.exists(status_file):
             # 状态文件不存在，Agent未启动
@@ -325,7 +360,7 @@ echo Manual restart completed!
 当需要关闭一个Plan时：
 
 1. **停止所有Agent**
-   - 读取agent_list.json获取所有Agent
+   - 读取plan_manifest.json获取所有Agent
    - 依次调用每个Agent的stop.bat
    - 等待所有Agent完全停止
 
@@ -336,7 +371,7 @@ echo Manual restart completed!
 
 3. **可选：清理其他文件**
    - 清理workspace/plan_xxx/
-   - 清理shared_folder_path/plan_id/
+   - 清理system_runtime/plans/<plan_id>/ 和 system_runtime/artifacts/<plan_id>/
    - 根据需求决定是否保留
 
 ### 关闭脚本
@@ -355,16 +390,16 @@ if "%PLAN_ID%"=="" (
 
 echo Closing Plan: %PLAN_ID%
 
-REM 读取agent_list.json
-set AGENT_LIST_FILE=shared_folder_path\%PLAN_ID%\agent_list.json
+REM 读取plan_manifest.json（系统汇总后的拷贝）
+set AGENT_LIST_FILE=system_runtime\plans\%PLAN_ID%\plan_manifest.json
 
 if not exist %AGENT_LIST_FILE% (
-    echo Error: agent_list.json not found for plan %PLAN_ID%
+    echo Error: plan_manifest.json not found for plan %PLAN_ID%
     pause
     exit /b 1
 )
 
-REM 解析agent_list.json并停止每个Agent
+REM 解析plan_manifest.json并停止每个Agent
 REM 使用Python脚本来解析JSON
 python -c "import json; agents = json.load(open('%AGENT_LIST_FILE%')); [print(a['agent_id']) for a in agents['agents']]" > temp_agents.txt
 
@@ -400,7 +435,7 @@ pause
 - **批处理脚本**: 每个Agent有start.bat、stop.bat、restart.bat
 - **单例启动**: 多次点击启动不重复启动
 - **进程管理**: 通过WINDOWTITLE区分不同Agent进程
-- **GM写agent_list**: Plan开始时写入agent_list.json
+- **规划者写plan_manifest**: Plan开始时写入plan_manifest.json
 - **监控程序**: 监控agent_list和agent_status
 - **手动重启**: 发现异常时可以手动重启
 - **Plan关闭**: 停止所有Agent，清理inbox和outbox
@@ -408,11 +443,10 @@ pause
 
 ## 与其他原则的配合
 
-### 与PR-024（公用文件夹和状态监控）配合
+### 与PR-024（系统路由与状态监控）配合
 
-- agent_list.json写入shared_folder/plan_id/
-- Agent状态写入shared_folder/agent_status/
-- 监控程序读取这两个位置
+- plan_manifest写入规划者 outbox/<plan_id>/，系统程序汇总到 `system_runtime/plans/<plan_id>/`
+- 监控程序读取 `system_runtime/agent_status/` 与 `system_runtime/plans/<plan_id>/`
 
 ### 与PR-011（统一轮询工作方式）配合
 

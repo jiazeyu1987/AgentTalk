@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenttalk.local/schemas/release_manifest.schema.json",
+  "title": "ReleaseManifest",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "release_id", "plan_id", "created_at", "release_manager_agent_id", "decision"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "release_id": { "type": "string", "minLength": 1 },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "release_manager_agent_id": { "type": "string", "minLength": 1 },
+    "artifacts": { "type": ["array", "null"], "items": { "type": "object", "additionalProperties": true } },
+    "evidence_required": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1 } },
+    "evidence_refs": { "type": ["array", "null"], "items": { "type": "object", "additionalProperties": true } },
+    "decision": { "type": "string", "enum": ["APPROVE", "REJECT"] },
+    "notes": { "type": ["string", "null"] }
+  }
+}
+

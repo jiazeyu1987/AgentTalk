@@ -16,6 +16,14 @@
 - **文件名不变**: 配置文件、文档文件、代码文件等都保持原有名称
 - **避免冲突**: 不同plan可以有同名文件，因为它们在不同的plan_id目录下
 
+当同一plan内需要多版本/多次投递且仍要保持文件名不变时，推荐使用“消息目录”包装而不是改名：
+
+- 发送方写入：`outbox/<plan_id>/<message_id>/<original_filename>`
+- 同时写入：`outbox/<plan_id>/<message_id>/message.meta.json`（包含message_id、sha256、type等，见PR-001）
+- 接收方落盘：`inbox/<plan_id>/<message_id>/<original_filename>`
+
+这样既能保持原始文件名不变，又能避免同一plan内的覆盖与歧义，并天然支持去重/审计。
+
 ## 历史记录
 
 系统维护完整的历史记录：

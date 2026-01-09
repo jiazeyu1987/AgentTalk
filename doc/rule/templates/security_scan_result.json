@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "plan_a3f5b2c8",
+  "validation_id": "sec_20250108T131500Z_0001",
+  "validator_agent_id": "agent_security_engineer",
+  "validated_at": "2025-01-08T13:15:00Z",
+  "scope": {
+    "sast": true,
+    "dependency_scan": true,
+    "secrets_scan": true
+  },
+  "decision": "PASS",
+  "evidence": {
+    "reports": ["security_report.json"],
+    "sbom_files": ["sbom.spdx.json"]
+  },
+  "issues": [],
+  "notes": "PASS requires zero CRITICAL and zero HIGH findings (or explicit risk acceptance recorded elsewhere)."
+}
+

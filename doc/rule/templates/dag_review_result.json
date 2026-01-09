@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "plan_a3f5b2c8",
+  "review_id": "dag_review_20250108T101500Z_0001",
+  "reviewer_agent_id": "agent_architecture_expert",
+  "reviewed_at": "2025-01-08T10:15:00Z",
+  "dag": {
+    "file_name": "task_dag.json",
+    "sha256": "sha256:REPLACE_ME"
+  },
+  "score": 78,
+  "decision": "REVISE",
+  "scores": {
+    "executability": 80,
+    "dependencies": 70,
+    "io_completeness": 75,
+    "routing_completeness": 60,
+    "risk_coverage": 70
+  },
+  "issues": [
+    {
+      "severity": "HIGH",
+      "category": "ROUTING",
+      "message": "task_002 output database_schema.json has no deliver_to.",
+      "suggestion": "Add deliver_to for database_schema.json, or add a routing_rules match."
+    }
+  ],
+  "recommendation": "Update DAG and resubmit for review. Do not dispatch execution commands until APPROVE."
+}

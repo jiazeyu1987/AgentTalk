@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "plan_a3f5b2c8",
+  "validation_id": "build_20250108T120000Z_0001",
+  "validator_agent_id": "agent_build_engineer",
+  "validated_at": "2025-01-08T12:00:00Z",
+  "subject": {
+    "component": "backend",
+    "source_ref": "git:main@abcdef1",
+    "artifact_name": "backend_image.tar",
+    "artifact_sha256": "sha256:REPLACE_ME"
+  },
+  "decision": "PASS",
+  "evidence": {
+    "build_log_files": ["build.log"],
+    "sbom_files": ["sbom.spdx.json"],
+    "artifact_manifest_files": ["artifact_manifest.json"]
+  },
+  "issues": [],
+  "notes": "PASS means build is reproducible for the declared source_ref and produces the declared artifact."
+}
+

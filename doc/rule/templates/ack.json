@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "plan_a3f5b2c8",
+  "message_id": "msg_20250108T103000Z_0001",
+  "consumer_agent_id": "agent_testing_engineer",
+  "status": "CONSUMED",
+  "consumed_at": "2025-01-08T10:31:00Z",
+  "result": {
+    "ok": true,
+    "details": "Processed successfully"
+  }
+}

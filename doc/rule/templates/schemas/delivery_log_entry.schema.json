@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenttalk.local/schemas/delivery_log_entry.schema.json",
+  "title": "DeliveryLogEntry",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "delivery_id", "plan_id", "message_id", "from_agent_id", "to_agent_id", "delivered_at", "status"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "delivery_id": { "type": "string", "minLength": 1 },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "message_id": { "type": "string", "minLength": 1 },
+    "from_agent_id": { "type": "string", "minLength": 1 },
+    "to_agent_id": { "type": "string", "minLength": 1 },
+    "delivered_at": { "type": "string", "format": "date-time" },
+    "status": { "type": "string", "enum": ["DELIVERED", "SKIPPED_DUPLICATE", "FAILED", "DEADLETTERED"] },
+    "payload": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "properties": {
+        "files": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "sha256": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "error": { "type": ["object", "null"], "additionalProperties": true }
+  }
+}
+

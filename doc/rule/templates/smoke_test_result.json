@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "plan_a3f5b2c8",
+  "validation_id": "smoke_20250108T124500Z_0001",
+  "validator_agent_id": "agent_sre",
+  "validated_at": "2025-01-08T12:45:00Z",
+  "target": {
+    "base_url": "https://staging.example.com",
+    "release_candidate": "rc_20250108_01"
+  },
+  "decision": "PASS",
+  "evidence": {
+    "smoke_report_files": ["smoke_report.json"],
+    "logs": ["smoke.log"]
+  },
+  "issues": [],
+  "notes": "PASS means critical paths are functional (login, CRUD, checkout/admin flows as defined)."
+}
+

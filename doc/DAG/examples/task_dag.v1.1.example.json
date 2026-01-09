@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.1",
+  "plan_id": "plan_a3f5b2c8",
+  "created_at": "2025-01-08T10:00:00Z",
+  "nodes": [
+    {
+      "task_id": "task_001",
+      "name": "Requirements analysis",
+      "assigned_agent_id": "agent_product_manager",
+      "depends_on": [],
+      "inputs": [
+        {
+          "name": "user_request",
+          "selector": { "type": "by_file_name", "value": "user_request.md" },
+          "required": true,
+          "pick_policy": "first_seen"
+        }
+      ],
+      "failure_policy": {
+        "on_dependency_failed": "BLOCK",
+        "max_reexecute_times": 3
+      },
+      "gates": {
+        "required": true,
+        "evidence_required": ["dag_review_result.json"],
+        "thresholds": { "dag_review_min_score": 80 }
+      },
+      "outputs": [
+        {
+          "name": "requirements.md",
+          "content_type": "text/markdown",
+          "deliver_to": ["agent_database_expert", "agent_backend_developer"],
+          "deliverable": true,
+          "idempotency_key": "plan_a3f5b2c8:task_001:requirements",
+          "versioning": { "mode": "reject_on_change", "conflict_policy": "deadletter_on_change" }
+        }
+      ]
+    },
+    {
+      "task_id": "task_002",
+      "name": "Database design",
+      "assigned_agent_id": "agent_database_expert",
+      "depends_on": ["task_001"],
+      "inputs": [
+        {
+          "name": "requirements",
+          "selector": { "type": "by_output_name", "value": "requirements.md" },
+          "required": true,
+          "pick_policy": "latest_by_delivered_at"
+        }
+      ],
+      "failure_policy": { "on_dependency_failed": "SKIP" },
+      "outputs": [
+        {
+          "name": "database_schema.json",
+          "content_type": "application/json",
+          "deliver_to": ["agent_backend_developer"],
+          "deliverable": true,
+          "idempotency_key": "plan_a3f5b2c8:task_002:db_schema",
+          "versioning": { "mode": "keep_latest", "conflict_policy": "accept_duplicate_if_same_hash" }
+        }
+      ]
+    },
+    {
+      "task_id": "task_003",
+      "name": "Backend implementation",
+      "assigned_agent_id": "agent_backend_developer",
+      "depends_on": ["task_001", "task_002"],
+      "inputs": [
+        {
+          "name": "requirements",
+          "selector": { "type": "by_output_name", "value": "requirements.md" },
+          "required": true,
+          "pick_policy": "latest_by_delivered_at"
+        },
+        {
+          "name": "db_schema",
+          "selector": { "type": "by_output_name", "value": "database_schema.json" },
+          "required": true,
+          "pick_policy": "latest_by_delivered_at"
+        }
+      ],
+      "failure_policy": { "on_dependency_failed": "REPLAN_REQUEST" },
+      "gates": {
+        "required": true,
+        "evidence_required": ["artifact_validation_result.json"],
+        "thresholds": { "artifact_validation_min_score": 80 }
+      },
+      "outputs": [
+        {
+          "name": "backend_package.zip",
+          "content_type": "application/zip",
+          "deliver_to": ["agent_testing_engineer"],
+          "deliverable": true,
+          "idempotency_key": "plan_a3f5b2c8:task_003:backend_package",
+          "versioning": { "mode": "reject_on_change", "conflict_policy": "deadletter_on_change" }
+        }
+      ]
+    }
+  ],
+  "routing_rules": [
+    {
+      "match": { "output_name": "requirements.md" },
+      "deliver_to": ["agent_database_expert", "agent_backend_developer"]
+    }
+  ]
+}
+

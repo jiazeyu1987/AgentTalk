@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenttalk.local/schemas/human_intervention_response.schema.json",
+  "title": "HumanInterventionResponse",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "request_id", "plan_id", "responded_at", "decision"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "request_id": { "type": "string", "minLength": 1 },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "responded_at": { "type": "string", "format": "date-time" },
+    "decision": { "type": "string", "enum": ["APPROVE", "REJECT", "PROVIDE", "CLARIFY"] },
+    "provided_files": { "type": ["array", "null"], "items": { "type": "object", "additionalProperties": true } },
+    "criteria_updates": { "type": ["object", "null"], "additionalProperties": true }
+  }
+}
+

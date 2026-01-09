@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0",
+  "request_id": "human_req_20250108T140000Z_0001",
+  "plan_id": "plan_a3f5b2c8",
+  "created_at": "2025-01-08T14:00:00Z",
+  "created_by": {
+    "agent_id": "agent_system_monitor",
+    "task_id": "task_003",
+    "command_id": "cmd_task_003_001"
+  },
+  "severity": "HIGH",
+  "type": "MISSING_FILE",
+  "title": "Missing production-like .env and database credentials for staging deploy",
+  "blocking": {
+    "status": "BLOCKED_WAITING_HUMAN",
+    "reason": "Required external configuration not provided via inbox/outbox"
+  },
+  "needed": {
+    "files": [
+      {
+        "name": ".env.staging",
+        "description": "Staging environment variables (no production secrets).",
+        "sensitivity": "CONFIDENTIAL",
+        "deliver_to_agent_id": "agent_release_engineer"
+      }
+    ],
+    "decision": {
+      "question": "Choose staging database provisioning approach",
+      "options": [
+        { "key": "A", "label": "Use managed DB instance", "impact": "More realistic, needs access grant" },
+        { "key": "B", "label": "Use dockerized DB", "impact": "Easier, less realistic" }
+      ],
+      "default": "B"
+    },
+    "criteria": {
+      "acceptance": "Deploy must succeed and smoke tests must pass on staging."
+    }
+  },
+  "deadline": "2025-01-09T18:00:00Z",
+  "context_refs": [
+    {
+      "kind": "alert",
+      "file": "alert_20250108T135500Z_0003.json",
+      "sha256": "sha256:REPLACE_ME"
+    }
+  ],
+  "notes": "This request is delivered to agent_human_gateway inbox. Human replies via human_intervention_response.json."
+}
+

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenttalk.local/schemas/human_intervention_request.schema.json",
+  "title": "HumanInterventionRequest",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "request_id", "plan_id", "created_at", "type", "severity", "needed"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "request_id": { "type": "string", "minLength": 1 },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "severity": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+    "type": { "type": "string", "minLength": 1 },
+    "title": { "type": ["string", "null"] },
+    "blocking": { "type": ["object", "null"], "additionalProperties": true },
+    "needed": { "type": "object", "additionalProperties": true },
+    "deadline": { "type": ["string", "null"], "format": "date-time" },
+    "context_refs": { "type": ["array", "null"], "items": { "type": "object", "additionalProperties": true } }
+  }
+}
+

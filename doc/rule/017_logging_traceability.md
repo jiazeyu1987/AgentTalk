@@ -193,6 +193,7 @@ AgentTalk系统通过多层日志追踪机制确保所有Agent活动可追溯、
 - task_id: 任务标识符
 - command_id: 命令标识符
 - agent_id: Agent标识符
+- message_id: 消息/投递单元的唯一ID（用于文件投递去重与端到端关联，见PR-001）
 - timestamp: ISO 8601时间戳
 - level: 日志级别（DEBUG/INFO/WARN/ERROR）
 
@@ -205,6 +206,17 @@ AgentTalk系统通过多层日志追踪机制确保所有Agent活动可追溯、
 - 可以追踪一个请求的完整生命周期
 - 可以快速定位问题
 - 可以做端到端的性能分析
+
+## 文件级可追溯性（推荐）
+
+为保证“只用文件传递”的可靠性，推荐在输入/输出日志中记录以下元数据：
+
+- `sha256`: 文件内容哈希（用于完整性校验与去重）
+- `idempotency_key`: 幂等键（用于“重复消息不重复执行”）
+- `schema_version`: 命令/消息schema版本（用于解析兼容与死信处理）
+- `delivery`: 投递信息（from_agent、to_agent、delivered_at、delivery_id）
+
+这些字段可以来自 `*.msg.json`/`*.meta.json` 信封文件，或由系统路由程序在投递日志中统一记录（见PR-024）。
 
 ### 5. 索引文件
 

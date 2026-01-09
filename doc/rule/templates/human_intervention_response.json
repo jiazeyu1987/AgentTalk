@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "request_id": "human_req_20250108T140000Z_0001",
+  "plan_id": "plan_a3f5b2c8",
+  "responded_at": "2025-01-08T15:00:00Z",
+  "responder": {
+    "name": "Alice",
+    "role": "Project Owner"
+  },
+  "decision": "PROVIDE",
+  "provided_files": [
+    {
+      "name": ".env.staging",
+      "sha256": "sha256:REPLACE_ME",
+      "deliver_to_agent_id": "agent_release_engineer"
+    }
+  ],
+  "decision_answers": [
+    {
+      "question": "Choose staging database provisioning approach",
+      "selected": "B"
+    }
+  ],
+  "criteria_updates": {
+    "acceptance": "Deploy to staging + smoke PASS + e2e PASS (min_score=80)."
+  },
+  "notes": "System router should deliver provided files to the target agent inbox and unblock the plan."
+}
+

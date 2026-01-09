@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "request_id": "replan_20250108T141000Z_0001",
+  "plan_id": "plan_a3f5b2c8",
+  "created_at": "2025-01-08T14:10:00Z",
+  "trigger": {
+    "type": "DEPENDENCY_FAILED",
+    "failed_task_id": "task_002",
+    "downstream_task_id": "task_003"
+  },
+  "reason": {
+    "code": "REPLAN_REQUEST",
+    "message": "DB design failed; backend task cannot proceed without schema."
+  },
+  "recommendation": {
+    "suggested_actions": [
+      "Assign alternative DB expert",
+      "Split backend task into stubs + integration later",
+      "Introduce fallback schema for MVP"
+    ]
+  },
+  "deliver_to_agent_id": "agent_general_manager",
+  "notes": "System/router should deliver this to planner role or via Human Gateway if planner is not running."
+}
+

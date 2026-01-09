@@ -24,7 +24,7 @@
 14. [PR-021: Agent能力自评机制](./021_agent_self_assessment.md)
 15. [PR-022: 链式验证机制](./022_chain_validation.md)
 16. [PR-023: 并发控制机制](./023_concurrency_control.md)
-17. [PR-024: 公用文件夹和状态监控机制](./024_shared_folder_monitoring.md)
+17. [PR-024: 系统路由与状态监控机制](./024_shared_folder_monitoring.md)
 18. [PR-025: Agent生命周期管理和Plan监控机制](./025_agent_lifecycle_plan_monitoring.md)
 19. [PR-026: Agent发现和手动配置机制](./026_agent_discovery_manual_configuration.md)
 
@@ -69,6 +69,15 @@
    - 关键要点
    - 典型应用
 
+### 使用模板（推荐）
+
+为避免“概念一致但落盘格式不一致”，`doc/rule/templates/` 提供一组可复用的JSON模板（消息信封、命令、DAG、plan清单、回执、告警、死信）。
+
+- 模板索引：`doc/rule/templates/README.md`
+- 评审与验收模板：`doc/rule/templates/dag_review_result.json`、`doc/rule/templates/artifact_validation_result.json`
+- 发布门禁与放行模板：`doc/rule/templates/build_validation_result.json`、`doc/rule/templates/deploy_validation_result.json`、`doc/rule/templates/smoke_test_result.json`、`doc/rule/templates/e2e_test_result.json`、`doc/rule/templates/security_scan_result.json`、`doc/rule/templates/release_manifest.json`
+- 人类介入模板：`doc/rule/templates/human_intervention_request.json`、`doc/rule/templates/human_intervention_response.json`
+
 ### 新增原则
 
 当需要新增原则时：
@@ -91,7 +100,7 @@
 性能与扩展性 (PR-014 ~ PR-016)
 ```
 
-- **核心机制**定义了AgentTalk系统的基础架构、交互方式、执行命令、文件夹结构、任务分配、日志追踪、能力声明、Claude Code集成、命令完整性、能力自评、链式验证、并发控制、公用文件夹监控、Agent生命周期管理和Agent发现配置
+- **核心机制**定义了AgentTalk系统的基础架构、交互方式、执行命令、文件夹结构、任务分配、日志追踪、能力声明、Claude Code集成、命令完整性、能力自评、链式验证、并发控制、系统路由与状态监控、Agent生命周期管理和Agent发现配置
 - **轮询机制**是Agent的工作方式，扫描inbox并处理执行命令
 - **性能与扩展性**确保系统高效运行和易于扩展
 
@@ -102,3 +111,7 @@
 - [文件传输机制](../file_transfer_mechanism.md)
 - [Agent审查和等待机制](../agent_review_and_wait_mechanism.md)
 - [Agent事件处理机制](../agent_event_handling_mechanism.md)
+
+## Examples
+
+- 端到端目录快照：`doc/rule/examples/README.md`

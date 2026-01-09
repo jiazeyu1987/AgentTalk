@@ -21,7 +21,7 @@ agent_xxx_name/
 │   ├── state_manager.py            # 管理agent_state.json
 │   ├── skill_dispatcher.py         # 路由消息到适当的技能
 │   ├── wakeup_listener.py          # 休眠时监听唤醒信号
-│   └── wakeup_sender.py            # 发送唤醒信号给其他Agent
+│   └── wakeup_sender.py            # 通过outbox发出唤醒信号（由系统路由程序投递）
 │
 ├── agent_profile.json              # Agent配置（lifecycle、heartbeat、visibility等）
 ├── agent_state.json                # 运行状态（自动生成，status、health等）
@@ -84,7 +84,7 @@ agent_xxx_name/
 - `state_manager.py`: 管理agent_state.json，更新Agent状态
 - `skill_dispatcher.py`: 路由消息到适当的技能处理
 - `wakeup_listener.py`: Agent休眠时监听唤醒信号
-- `wakeup_sender.py`: 向其他Agent发送唤醒信号
+- `wakeup_sender.py`: 通过outbox向其他Agent发送唤醒信号（实际投递由系统路由程序完成）
 
 **关键特性**:
 - 必须保证100%稳定性

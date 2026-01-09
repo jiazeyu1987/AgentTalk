@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenttalk.local/schemas/command.schema.json",
+  "title": "ExecuteCommand",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "command_id", "plan_id", "prompt", "required_inputs", "wait_for_inputs", "score_required", "timeout"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "command_id": { "type": "string", "minLength": 1 },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": ["string", "null"] },
+    "prompt": { "type": "string", "minLength": 1 },
+    "required_inputs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "wait_for_inputs": { "type": "boolean" },
+    "score_required": { "type": "boolean" },
+    "score_criteria": { "type": ["string", "null"] },
+    "timeout": { "type": "integer", "minimum": 1 },
+    "idempotency_key": { "type": ["string", "null"] },
+    "on_complete": {
+      "type": ["object", "null"],
+      "properties": {
+        "send_to": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1 } },
+        "message_template": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "on_failure": {
+      "type": ["object", "null"],
+      "properties": {
+        "send_to": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1 } },
+        "message_template": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    }
+  }
+}
+

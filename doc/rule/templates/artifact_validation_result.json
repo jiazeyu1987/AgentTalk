@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "plan_a3f5b2c8",
+  "validation_id": "val_20250108T110000Z_0001",
+  "validator_agent_id": "agent_testing_engineer",
+  "validated_at": "2025-01-08T11:00:00Z",
+  "subject": {
+    "producer_agent_id": "agent_frontend_developer",
+    "task_id": "task_frontend_001",
+    "artifact_name": "frontend_build.zip",
+    "artifact_sha256": "sha256:REPLACE_ME"
+  },
+  "score": 65,
+  "decision": "REJECT",
+  "criteria": {
+    "e2e_tests": "must_pass",
+    "performance_budget": "p95<200ms",
+    "accessibility": "wcag_aa"
+  },
+  "evidence": {
+    "test_report_files": ["playwright_report.zip"],
+    "logs": ["test_run.log"]
+  },
+  "issues": [
+    {
+      "severity": "HIGH",
+      "category": "E2E",
+      "message": "Login flow fails on Safari.",
+      "suggestion": "Fix polyfill / auth redirect handling; add regression test."
+    }
+  ],
+  "next_action": {
+    "type": "REEXECUTE",
+    "target_agent_id": "agent_frontend_developer",
+    "prompt": "Fix issues listed in artifact_validation_result.json and resubmit frontend_build.zip."
+  }
+}

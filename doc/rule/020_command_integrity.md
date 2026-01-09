@@ -54,8 +54,10 @@ Skill根据参数生成完整的命令JSON：
 **生成的命令**:
 ```json
 {
+  "schema_version": "1.0",
   "command_id": "cmd_task_001",
   "plan_id": "plan_develop_ecommerce",
+  "idempotency_key": "plan_develop_ecommerce:task_001:cmd_task_001",
   "prompt": "分析需求文档并生成用户故事",
   "required_inputs": ["requirements.md"],
   "wait_for_inputs": true,
@@ -203,6 +205,28 @@ Skill返回验证通过的命令：
 **格式**: 非负整数
 
 **默认值**: `0`
+
+#### schema_version（推荐）
+
+命令schema版本，用于解析兼容与死信处理。
+
+**格式**: 字符串
+
+**示例**: `"1.0"`
+
+#### idempotency_key（推荐）
+
+用于“重复命令不重复执行”的幂等键。可由规划者按规则生成，也可由skill补全默认值（例如用command_id）。
+
+**格式**: 字符串
+
+**示例**: `"plan_001:task_002:cmd_task_002_001"`
+
+#### payload_hash（推荐）
+
+命令内容哈希（或关键字段哈希），用于完整性校验与审计。
+
+**格式**: 字符串（如sha256）
 
 ## Skill实现
 

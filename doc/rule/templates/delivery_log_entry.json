@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "delivery_id": "del_20250108T103010Z_0001",
+  "plan_id": "plan_a3f5b2c8",
+  "message_id": "msg_20250108T103000Z_0001",
+  "from_agent_id": "agent_backend_developer",
+  "to_agent_id": "agent_testing_engineer",
+  "delivered_at": "2025-01-08T10:30:10Z",
+  "status": "DELIVERED",
+  "payload": {
+    "files": [
+      {
+        "path": "backend_package.zip",
+        "sha256": "sha256:REPLACE_ME"
+      }
+    ]
+  },
+  "notes": "One JSON object per line in deliveries.jsonl"
+}

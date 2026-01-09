@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenttalk.local/schemas/replan_request.schema.json",
+  "title": "ReplanRequest",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "request_id", "plan_id", "created_at", "reason", "deliver_to_agent_id"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "request_id": { "type": "string", "minLength": 1 },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "trigger": { "type": ["object", "null"], "additionalProperties": true },
+    "reason": { "type": "object", "additionalProperties": true },
+    "recommendation": { "type": ["object", "null"], "additionalProperties": true },
+    "deliver_to_agent_id": { "type": "string", "minLength": 1 }
+  }
+}
+

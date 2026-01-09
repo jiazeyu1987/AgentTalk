@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenttalk.local/schemas/message_envelope.schema.json",
+  "title": "MessageEnvelope",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "message_id", "plan_id", "producer_agent_id", "type", "created_at", "payload"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "message_id": { "type": "string", "minLength": 1 },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": ["string", "null"] },
+    "command_id": { "type": ["string", "null"] },
+    "producer_agent_id": { "type": "string", "minLength": 1 },
+    "type": { "type": "string", "minLength": 1 },
+    "subtype": { "type": ["string", "null"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "idempotency_key": { "type": ["string", "null"] },
+    "payload": {
+      "type": "object",
+      "required": ["files"],
+      "properties": {
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "sha256": { "type": "string", "minLength": 1 },
+              "content_type": { "type": ["string", "null"] },
+              "size_bytes": { "type": ["integer", "null"], "minimum": 0 }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "routing": {
+      "type": ["object", "null"],
+      "properties": {
+        "intended_recipients": {
+          "type": ["array", "null"],
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": true
+    },
+    "correlation": { "type": ["object", "null"], "additionalProperties": true }
+  }
+}
+

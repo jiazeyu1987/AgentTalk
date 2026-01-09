@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "alert_id": "alert_20250108T103500Z_0001",
+  "plan_id": "plan_a3f5b2c8",
+  "severity": "HIGH",
+  "type": "TIMEOUT",
+  "created_at": "2025-01-08T10:35:00Z",
+  "source": {
+    "agent_id": "agent_backend_developer",
+    "task_id": "task_003",
+    "command_id": "cmd_task_003_001"
+  },
+  "message": "Command timeout waiting for required inputs.",
+  "details": {
+    "required_inputs": ["requirements.md", "database_schema.json"],
+    "timeout_seconds": 3600,
+    "retry_count": 2
+  }
+}

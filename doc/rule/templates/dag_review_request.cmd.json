@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "command_id": "cmd_dag_review_001",
+  "plan_id": "plan_a3f5b2c8",
+  "task_id": "review_dag",
+  "prompt": "Review the provided task_dag.json and plan_manifest.json. Score 0-100 for executability, dependency correctness, I/O completeness, routing completeness, and risk coverage. If score < 80, output concrete revision suggestions.",
+  "required_inputs": ["task_dag.json", "plan_manifest.json"],
+  "wait_for_inputs": true,
+  "score_required": true,
+  "score_criteria": "0-100. >=80 APPROVE, 60-79 REVISE, <60 REJECT",
+  "timeout": 1800,
+  "idempotency_key": "plan_a3f5b2c8:review:dag:v1",
+  "on_complete": {
+    "send_to": ["agent_general_manager"],
+    "message_template": "DAG review completed: {result}, score: {score}"
+  },
+  "on_failure": {
+    "send_to": ["agent_general_manager"],
+    "message_template": "DAG review failed: {error}"
+  }
+}
