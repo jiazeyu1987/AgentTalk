@@ -1,0 +1,282 @@
+# 命令完整性保证机制
+
+**原则ID**: PR-020
+**来源文档**: command_integrity_guarantee.md
+**类别**: 核心机制
+
+---
+
+## 原则描述
+
+通过skill保证生成的命令是完整的、符合格式的JSON文件。Agent使用skill生成命令，确保命令包含所有必需字段且格式正确。
+
+## 核心思想
+
+**命令生成 = Skill调用**
+
+Agent不手动构造JSON命令，而是通过调用专门的skill来生成命令。Skill负责：
+1. 验证所有必需字段
+2. 确保JSON格式正确
+3. 添加默认值
+4. 验证字段类型
+5. 返回完整的命令对象
+
+## 命令生成流程
+
+### 1. Agent准备命令参数
+
+Agent收集命令所需的信息：
+- command_id
+- plan_id
+- prompt
+- required_inputs
+- 其他参数
+
+### 2. 调用命令生成skill
+
+Agent调用专门的skill，例如"generate_command"：
+
+**调用示例**:
+```
+请生成一个执行命令，包含以下参数：
+- command_id: cmd_task_001
+- plan_id: plan_develop_ecommerce
+- prompt: 分析需求文档并生成用户故事
+- required_inputs: ["requirements.md"]
+- wait_for_inputs: true
+- score_required: true
+```
+
+### 3. Skill生成完整命令
+
+Skill根据参数生成完整的命令JSON：
+
+**生成的命令**:
+```json
+{
+  "command_id": "cmd_task_001",
+  "plan_id": "plan_develop_ecommerce",
+  "prompt": "分析需求文档并生成用户故事",
+  "required_inputs": ["requirements.md"],
+  "wait_for_inputs": true,
+  "score_required": true,
+  "score_criteria": "根据用户故事的完整性、清晰度、可测试性评分0-100",
+  "on_complete": {
+    "send_to": ["agent_general_manager"],
+    "message_template": "用户故事生成完成: {result}, 评分: {score}"
+  },
+  "on_failure": {
+    "send_to": ["agent_general_manager"],
+    "message_template": "用户故事生成失败: {error}"
+  },
+  "timeout": 3600
+}
+```
+
+### 4. 验证命令完整性
+
+Skill自动验证生成的命令：
+
+**检查项**:
+1. ✅ command_id存在且唯一
+2. ✅ plan_id存在
+3. ✅ prompt存在且非空
+4. ✅ required_inputs是数组
+5. ✅ wait_for_inputs是布尔值
+6. ✅ score_required是布尔值
+7. ✅ on_complete存在
+8. ✅ on_failure存在
+9. ✅ timeout是正整数
+
+### 5. 返回完整命令
+
+Skill返回验证通过的命令：
+- 验证通过：返回完整命令JSON
+- 验证失败：返回错误信息
+
+## 命令格式标准
+
+### 必需字段
+
+所有命令必须包含以下字段：
+
+#### command_id
+
+命令的唯一标识符。
+
+**格式**: 字符串
+
+**生成规则**: `cmd_<task_id>_<sequence>`
+
+**示例**: `"cmd_task_001_001"`
+
+#### plan_id
+
+关联的plan标识符。
+
+**格式**: 字符串
+
+**示例**: `"plan_develop_ecommerce"`
+
+#### prompt
+
+命令的提示词描述。
+
+**格式**: 字符串，非空
+
+**示例**: `"分析需求文档并生成用户故事"`
+
+#### required_inputs
+
+需要的输入文件列表。
+
+**格式**: 字符串数组
+
+**示例**: `["requirements.md", "user_stories.json"]`
+
+#### wait_for_inputs
+
+是否等待输入文件齐全。
+
+**格式**: 布尔值
+
+**示例**: `true`
+
+#### score_required
+
+是否需要评分。
+
+**格式**: 布尔值
+
+**示例**: `true`
+
+#### on_complete
+
+完成后的操作。
+
+**格式**: 对象，包含send_to和message_template
+
+**示例**:
+```json
+{
+  "send_to": ["agent_general_manager"],
+  "message_template": "任务完成: {result}"
+}
+```
+
+#### on_failure
+
+失败时的操作。
+
+**格式**: 对象，包含send_to和message_template
+
+**示例**:
+```json
+{
+  "send_to": ["agent_general_manager"],
+  "message_template": "任务失败: {error}"
+}
+```
+
+#### timeout
+
+超时时间（秒）。
+
+**格式**: 正整数
+
+**示例**: `3600`
+
+### 可选字段
+
+#### score_criteria
+
+评分标准描述。
+
+**格式**: 字符串
+
+**示例**: `"根据完整性、清晰度、可测试性评分0-100"`
+
+#### retry_times
+
+重试次数。
+
+**格式**: 非负整数
+
+**默认值**: `0`
+
+## Skill实现
+
+### skill定义
+
+**文件**: `skills/generate_command/skill.md`
+
+**内容**:
+```markdown
+---
+skill_name: generate_command
+skill_version: 1.0.0
+description: 生成完整的、符合格式的执行命令
+inputs:
+  - name: command_params
+    type: object
+    description: 命令参数对象
+outputs:
+  - name: command
+    type: object
+    description: 完整的命令JSON
+---
+
+# 命令生成技能
+
+根据提供的参数生成完整的执行命令JSON，确保所有必需字段都存在且格式正确。
+```
+
+### 验证逻辑
+
+Skill包含验证逻辑：
+
+1. **字段存在性检查**
+   - 检查所有必需字段是否存在
+   - 缺失字段添加默认值
+
+2. **字段类型检查**
+   - 检查字段类型是否正确
+   - 类型不匹配时尝试转换
+
+3. **字段值验证**
+   - 检查字段值是否在有效范围内
+   - 无效值使用默认值
+
+4. **一致性检查**
+   - 检查字段之间的一致性
+   - 例如：score_required=true时，score_criteria必须存在
+
+## 关键要点
+
+- **Skill生成**: 通过skill生成命令，不手动构造
+- **完整性保证**: Skill验证所有必需字段
+- **格式正确**: Skill确保JSON格式正确
+- **默认值**: Skill为可选字段提供合理默认值
+- **验证返回**: Skill返回验证结果
+- **可扩展**: 可以添加新的必需或可选字段
+
+## 与其他原则的配合
+
+### 与PR-007（统一的执行命令）配合
+
+- 确保生成的命令符合统一的执行命令格式
+- 保证所有Agent都能解析和执行
+
+### 与PR-019（Claude Code调用机制）配合
+
+- 通过Claude Code调用命令生成skill
+- 利用LLM的能力生成合理的命令参数
+
+### 与PR-017（日志追踪）配合
+
+- 记录命令生成过程
+- 记录验证结果
+
+---
+
+**最后更新**: 2025-01-08
