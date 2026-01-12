@@ -16,7 +16,7 @@ AgentTalk系统中Agent之间只有一种交互方式：向对方的inbox文件�
 
 - **消息信封（Envelope）**：每次投递都应有一个可解析的元数据文件（推荐 `*.msg.json` 或 `*.meta.json`），携带消息ID、类型、关联任务等字段。
 - **原子落盘**：写入文件时先写临时文件（如 `*.tmp`），完成后原子重命名；消费方只处理“已完成写入”的文件。
-- **幂等与去重**：基于 `message_id` / `idempotency_key` 与内容哈希做去重，避免重复投递导致重复执行。
+- **幂等与去重**：系统路由以 `message_id + sha256` 为主去重键；`idempotency_key` 仅用于审计与人类可读关联，避免“双口径去重”导致行为分叉。
 - **回执（ACK）**：消费方处理完成后产出 `ack_<message_id>.json`，用于确认已处理（可选，但推荐）。
 - **死信（Deadletter）**：无法解析/不符合Schema/多次失败的消息进入 `inbox/<plan_id>/.deadletter/`，避免阻塞主流程（见PR-010/PR-024）。
 

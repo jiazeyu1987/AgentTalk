@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://agenttalk.local/schemas/task_dag.schema.json",
-  "title": "TaskDAG",
+  "title": "TaskDAG v1.1",
   "type": "object",
   "additionalProperties": true,
   "required": ["schema_version", "plan_id", "nodes"],
   "properties": {
-    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "schema_version": { "type": "string", "const": "1.1" },
     "plan_id": { "type": "string", "minLength": 1 },
     "created_at": { "type": ["string", "null"], "format": "date-time" },
     "nodes": {
@@ -15,25 +15,90 @@
       "items": {
         "type": "object",
         "additionalProperties": true,
-        "required": ["task_id", "assigned_agent_id", "depends_on", "required_inputs", "outputs"],
+        "required": ["task_id", "assigned_agent_id", "depends_on", "outputs"],
         "properties": {
           "task_id": { "type": "string", "minLength": 1 },
           "name": { "type": ["string", "null"] },
           "assigned_agent_id": { "type": "string", "minLength": 1 },
           "depends_on": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-          "required_inputs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "inputs": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": ["name", "selector", "required", "pick_policy"],
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "required": { "type": "boolean" },
+                "pick_policy": { "type": "string", "enum": ["latest_by_delivered_at", "first_seen", "by_sha256", "highest_score"] },
+                "selector": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": ["type"],
+                  "properties": {
+                    "type": { "type": "string", "enum": ["by_file_name", "by_glob", "by_output_name", "by_message_type"] },
+                    "value": { "type": "string", "minLength": 1 },
+                    "type_value": { "type": "string", "minLength": 1 },
+                    "subtype_value": { "type": "string", "minLength": 1 },
+                    "allowed_hashes": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 }
+                  },
+                  "oneOf": [
+                    { "properties": { "type": { "const": "by_file_name" } }, "required": ["type", "value"] },
+                    { "properties": { "type": { "const": "by_glob" } }, "required": ["type", "value"] },
+                    { "properties": { "type": { "const": "by_output_name" } }, "required": ["type", "value"] },
+                    { "properties": { "type": { "const": "by_message_type" } }, "required": ["type", "type_value", "subtype_value"] }
+                  ]
+                }
+              },
+              "allOf": [
+                {
+                  "if": { "properties": { "pick_policy": { "const": "by_sha256" } }, "required": ["pick_policy"] },
+                  "then": { "properties": { "selector": { "required": ["allowed_hashes"] } } }
+                }
+              ]
+            }
+          },
+          "required_inputs": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1 } },
+          "failure_policy": {
+            "type": ["object", "null"],
+            "additionalProperties": true,
+            "properties": {
+              "on_dependency_failed": { "type": "string", "enum": ["SKIP", "BLOCK", "REPLAN_REQUEST", "FALLBACK"] },
+              "max_reexecute_times": { "type": ["integer", "null"], "minimum": 0 },
+              "reexecute_target_agent_id": { "type": ["string", "null"] },
+              "fallback_task_id": { "type": ["string", "null"] }
+            }
+          },
+          "gates": {
+            "type": ["object", "null"],
+            "additionalProperties": true,
+            "properties": {
+              "required": { "type": ["boolean", "null"] },
+              "evidence_required": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1 } },
+              "thresholds": { "type": ["object", "null"], "additionalProperties": true }
+            }
+          },
           "outputs": {
             "type": "array",
             "items": {
               "type": "object",
               "additionalProperties": true,
-              "required": ["name", "deliver_to"],
+              "required": ["name", "deliver_to", "idempotency_key"],
               "properties": {
                 "name": { "type": "string", "minLength": 1 },
                 "content_type": { "type": ["string", "null"] },
                 "deliver_to": { "type": "array", "items": { "type": "string", "minLength": 1 } },
                 "deliverable": { "type": ["boolean", "null"] },
-                "idempotency_key": { "type": ["string", "null"] }
+                "idempotency_key": { "type": "string", "minLength": 1 },
+                "versioning": {
+                  "type": ["object", "null"],
+                  "additionalProperties": true,
+                  "properties": {
+                    "mode": { "type": ["string", "null"], "enum": ["immutable_by_message_id", "keep_latest", "reject_on_change", "overwrite_by_name", "semver_tagged", null] },
+                    "conflict_policy": { "type": ["string", "null"], "enum": ["accept_duplicate_if_same_hash", "deadletter_on_change", null] },
+                    "tag": { "type": ["string", "null"], "minLength": 1 }
+                  }
+                }
               }
             }
           }

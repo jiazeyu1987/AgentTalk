@@ -12,10 +12,21 @@ AgentTalk系统没有通用的"反馈"或"回复"机制。所有文件传递都�
 
 在运行期，跨Agent的文件投递由**系统路由程序**完成：Agent只写自己的outbox，不能直接写其他Agent的inbox（见PR-003）。
 
+## 前置阶段：大DAG尚未生成时怎么办（使用 Meta-DAG）
+
+在一些流程中（例如“一次性需求澄清”“DAG评审”“人类介入请求”），Business-DAG（大DAG）可能尚未生成。
+
+为保持路由机制唯一且可审计，本系统不使用命令中的 `send_to` 作为路由来源，而是要求：
+
+- Plan 从一开始就运行一个固定的 Meta-DAG（小DAG），用于生成并放行 Business-DAG。
+- 在 Meta-DAG 阶段，所有控制面产物（澄清问题清单、评审结果、告警/请求等）的投递目标都由 Meta-DAG 的 `outputs[].deliver_to` / `routing_rules` 预先定义。
+- 命令文件本身投递给谁，由 DAG 中对应任务的 `assigned_agent_id` 决定（见PR-024）。
+
 模板参考：
 - `doc/rule/templates/task_dag.json`
 - `doc/rule/templates/message_envelope.msg.json`
 - `doc/rule/templates/routing_priority.md`
+- `doc/rule/templates/command.cmd.json`
 
 ## 规定内容
 

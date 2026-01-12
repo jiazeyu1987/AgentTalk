@@ -128,6 +128,29 @@ Agent完成任务后能够提供的输出类型。
 
 ### 可选字段
 
+#### clarification
+
+用于“需求澄清问题收集”的角色模板与约束（推荐）。该字段的目的不是让 GM 全知全能，而是让 GM 可以根据各角色的声明，向合适的 Agent 发出“澄清问题收集”命令，并汇总一次性向用户/Human Gateway 询问。
+
+**格式**: 对象
+
+**建议字段**:
+- `templates`: 该角色可复用的澄清模板引用（文件路径或模板名）
+- `scope`: 该角色主要负责澄清的范围（例如玩法、验收、技术约束、风险）
+- `max_questions`: 建议该角色一次输出的最大问题数（便于“一次性澄清”）
+
+**示例**:
+```json
+"clarification": {
+  "templates": [
+    "templates/clarification_game_design.md",
+    "templates/clarification_pm.md"
+  ],
+  "scope": ["玩法与手感", "关卡与美术", "验收标准"],
+  "max_questions": 12
+}
+```
+
 #### constraints
 
 Agent的约束条件。

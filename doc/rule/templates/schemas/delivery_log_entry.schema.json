@@ -10,10 +10,14 @@
     "delivery_id": { "type": "string", "minLength": 1 },
     "plan_id": { "type": "string", "minLength": 1 },
     "message_id": { "type": "string", "minLength": 1 },
+    "envelope_sha256": { "type": ["string", "null"] },
+    "task_id": { "type": ["string", "null"] },
+    "command_id": { "type": ["string", "null"] },
+    "output_name": { "type": ["string", "null"] },
     "from_agent_id": { "type": "string", "minLength": 1 },
     "to_agent_id": { "type": "string", "minLength": 1 },
     "delivered_at": { "type": "string", "format": "date-time" },
-    "status": { "type": "string", "enum": ["DELIVERED", "SKIPPED_DUPLICATE", "FAILED", "DEADLETTERED"] },
+    "status": { "type": "string", "enum": ["DELIVERED", "SKIPPED_DUPLICATE", "SKIPPED_SUPERSEDED", "FAILED", "DEADLETTERED"] },
     "payload": {
       "type": ["object", "null"],
       "additionalProperties": true,
@@ -32,6 +36,11 @@
         }
       }
     },
+    "skip_reason": { "type": ["string", "null"] },
+    "superseded": { "type": ["boolean", "null"] },
+    "superseded_by_message_id": { "type": ["string", "null"] },
+    "superseded_by_command_id": { "type": ["string", "null"] },
+    "superseded_by_command_seq": { "type": ["integer", "null"], "minimum": 0 },
     "error": { "type": ["object", "null"], "additionalProperties": true }
   }
 }

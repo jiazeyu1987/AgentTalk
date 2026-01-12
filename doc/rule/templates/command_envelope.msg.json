@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "message_id": "msg_20250108T103000Z_0001",
+  "plan_id": "plan_a3f5b2c8",
+  "task_id": "task_001",
+  "command_id": "cmd_task_001_001",
+  "producer_agent_id": "agent_general_manager",
+  "type": "command",
+  "created_at": "2025-01-08T10:30:00Z",
+  "idempotency_key": "plan_a3f5b2c8:task_001:cmd_task_001_001",
+  "payload": {
+    "command": {
+      "schema_version": "1.0",
+      "command_id": "cmd_task_001_001",
+      "plan_id": "plan_a3f5b2c8",
+      "task_id": "task_001",
+      "command_seq": 1,
+      "dag_ref": {
+        "sha256": "sha256_of_system_runtime_plans_plan_a3f5b2c8_task_dag_json",
+        "revision": 1
+      },
+      "prompt": "Describe what to do, inputs to use, and outputs to produce.",
+      "required_inputs": [
+        "requirements.md",
+        "database_schema.json"
+      ],
+      "wait_for_inputs": true,
+      "score_required": false,
+      "score_criteria": null,
+      "timeout": 3600,
+      "idempotency_key": "plan_a3f5b2c8:task_001:cmd_task_001_001",
+      "on_complete": {
+        "message_template": "Task completed: {result}"
+      },
+      "on_failure": {
+        "message_template": "Task failed: {error}"
+      }
+    }
+  },
+  "correlation": {
+    "trace_id": "uuid-1234567890"
+  },
+  "notes": "Command is transported as a message_envelope (type=command). Router/ACK/Deliveries track by message_id."
+}

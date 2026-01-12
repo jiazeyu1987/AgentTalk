@@ -52,7 +52,7 @@
   - `by_file_name`：精确文件名
   - `by_glob`：通配（如 `feedback_*.json`）
   - `by_message_type`：按 message envelope 的 `type/subtype`
-  - `by_artifact_name`：按输出名（如 `database_schema.json`）
+  - `by_output_name`：按输出名（如 `database_schema.json`）
 - `pick_policy`：
   - `latest_by_delivered_at`
   - `first_seen`
@@ -73,7 +73,7 @@
 建议每个节点支持：
 - `on_dependency_failed`：`SKIP | BLOCK | FALLBACK | REPLAN_REQUEST`
 - `max_reexecute_times`：默认继承 `plan_manifest.policies.max_reexecute_times`
-- `reexecute_target`：默认是原assigned_agent_id，也可指定替代角色
+- `reexecute_target_agent_id`：默认是原assigned_agent_id，也可指定替代角色
 
 系统程序在汇总状态时，必须能判定下游是否应自动SKIP/阻塞/触发Human Gateway/触发规划者重规划。
 
@@ -88,14 +88,14 @@
 建议在 `outputs[]` 增加：
 - `idempotency_key`（已存在于模板，需强制）
 - `versioning`：
-  - `mode`：`immutable_by_message_id | overwrite_by_name | semver_tagged`
-  - `conflict_policy`：`reject_duplicate | accept_duplicate_if_same_hash | keep_latest`
+  - `mode`：`immutable_by_message_id | keep_latest | reject_on_change | overwrite_by_name | semver_tagged`
+  - `conflict_policy`：`accept_duplicate_if_same_hash | deadletter_on_change`
 - `deliverable`：是否为最终交付物候选
 - `acceptance`：验收要求（可引用门禁证据）
 
 并规定：同一 `idempotency_key` 重复出现时，系统路由必须去重并记录 `SKIPPED_DUPLICATE`；若内容不同则进入DLQ并告警（避免“同键不同物”破坏可追溯）。
 
-### 2.5 DAG评审关口（已引入，需强制化规则）
+### 2.5 DAG评审关口（方案评审事件之一，按通用流程落地）
 
 明确：在大任务/高风险任务中，DAG必须先 `APPROVE` 才允许投递执行命令或放开执行。
 
@@ -136,7 +136,7 @@
 对每个 outbox 新消息：
 1. 校验 envelope/schema
 2. 计算投递目标（先 outputs[].deliver_to，空则按 routing_rules first-match）
-3. 去重：按 `message_id/idempotency_key + sha256`
+3. 去重：以 `message_id + sha256` 为主去重键；`idempotency_key` 仅用于审计与可读关联
 4. 原子投递到目标 inbox
 5. 写 `deliveries.jsonl`（delivery_log_entry）
 

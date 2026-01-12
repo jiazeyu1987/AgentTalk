@@ -3,10 +3,19 @@
   "delivery_id": "del_20250108T103010Z_0001",
   "plan_id": "plan_a3f5b2c8",
   "message_id": "msg_20250108T103000Z_0001",
+  "envelope_sha256": "sha256:REPLACE_ME",
+  "task_id": "task_001",
+  "command_id": "cmd_task_001_001",
+  "output_name": "backend_package.zip",
   "from_agent_id": "agent_backend_developer",
   "to_agent_id": "agent_testing_engineer",
   "delivered_at": "2025-01-08T10:30:10Z",
   "status": "DELIVERED",
+  "skip_reason": null,
+  "superseded": null,
+  "superseded_by_message_id": null,
+  "superseded_by_command_id": null,
+  "superseded_by_command_seq": null,
   "payload": {
     "files": [
       {

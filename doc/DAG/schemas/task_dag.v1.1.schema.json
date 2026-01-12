@@ -30,16 +30,36 @@
               "properties": {
                 "name": { "type": "string", "minLength": 1 },
                 "required": { "type": "boolean" },
-                "pick_policy": { "type": "string", "enum": ["latest_by_delivered_at", "first_seen", "by_sha256"] },
+                "pick_policy": { "type": "string", "enum": ["latest_by_delivered_at", "first_seen", "by_sha256", "highest_score"] },
                 "selector": {
                   "type": "object",
                   "additionalProperties": true,
                   "required": ["type"],
                   "properties": {
-                    "type": { "type": "string", "enum": ["by_file_name", "by_glob", "by_output_name", "by_message_type"] }
+                    "type": { "type": "string", "enum": ["by_file_name", "by_glob", "by_output_name", "by_message_type"] },
+                    "value": { "type": "string", "minLength": 1 },
+                    "type_value": { "type": "string", "minLength": 1 },
+                    "subtype_value": { "type": "string", "minLength": 1 },
+                    "allowed_hashes": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 }
+                  },
+                  "oneOf": [
+                    { "properties": { "type": { "const": "by_file_name" } }, "required": ["type", "value"] },
+                    { "properties": { "type": { "const": "by_glob" } }, "required": ["type", "value"] },
+                    { "properties": { "type": { "const": "by_output_name" } }, "required": ["type", "value"] },
+                    { "properties": { "type": { "const": "by_message_type" } }, "required": ["type", "type_value", "subtype_value"] }
+                  ]
+                }
+              },
+              "allOf": [
+                {
+                  "if": { "properties": { "pick_policy": { "const": "by_sha256" } }, "required": ["pick_policy"] },
+                  "then": {
+                    "properties": {
+                      "selector": { "required": ["allowed_hashes"] }
+                    }
                   }
                 }
-              }
+              ]
             }
           },
           "required_inputs": { "type": ["array", "null"], "items": { "type": "string" } },
@@ -79,8 +99,9 @@
                   "type": ["object", "null"],
                   "additionalProperties": true,
                   "properties": {
-                    "mode": { "type": ["string", "null"], "enum": ["immutable_by_message_id", "keep_latest", "reject_on_change", null] },
-                    "conflict_policy": { "type": ["string", "null"], "enum": ["accept_duplicate_if_same_hash", "deadletter_on_change", null] }
+                    "mode": { "type": ["string", "null"], "enum": ["immutable_by_message_id", "keep_latest", "reject_on_change", "overwrite_by_name", "semver_tagged", null] },
+                    "conflict_policy": { "type": ["string", "null"], "enum": ["accept_duplicate_if_same_hash", "deadletter_on_change", null] },
+                    "tag": { "type": ["string", "null"], "minLength": 1 }
                   }
                 }
               }

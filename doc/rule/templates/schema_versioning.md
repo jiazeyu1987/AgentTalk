@@ -3,7 +3,7 @@
 本文件定义 `schema_version` 的版本规则，用于保证不同Agent与系统路由/监控程序对JSON文件的解析一致、可升级、可回滚。
 
 适用范围（所有结构化文件）：
-- 执行命令：`cmd_*.json`（见 `command.cmd.json`）
+- 命令消息：`cmd_*.msg.json`（envelope `type=command`，见 `command_envelope.msg.json`）
 - 消息信封：`*.msg.json` / `*.meta.json`（见 `message_envelope.msg.json`）
 - DAG/路由表：`task_dag.json`
 - Plan清单：`plan_manifest.json`

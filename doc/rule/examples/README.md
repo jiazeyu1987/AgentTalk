@@ -7,9 +7,9 @@
 **规划者（GM）输出（概念）**
 - `task_dag.json`：见 `doc/rule/templates/task_dag.json`
 - `plan_manifest.json`：见 `doc/rule/templates/plan_manifest.json`
-- `cmd_*.json`：见 `doc/rule/templates/command.cmd.json`
+- 命令消息：`cmd_*.msg.json`（envelope `type=command`，见 `doc/rule/templates/command_envelope.msg.json`）
 
-**可选：DAG评审关口（推荐用于大任务）**
+**DAG评审关口（属于“方案生成→多人评审→修订→再评审→放行”的通用流程一环）**
 - 规划者投递 `dag_review_request.cmd.json` 给专家评审角色（见 `doc/rule/templates/dag_review_request.cmd.json`）
 - 专家输出 `dag_review_result.json`（APPROVE/REVISE/REJECT，见 `doc/rule/templates/dag_review_result.json`）
 - 仅当APPROVE后，再投递执行命令给各执行Agent
@@ -94,8 +94,8 @@ system_runtime/
 - 生产方重复写入同一 `message_id`（或同一 `idempotency_key`）的消息
 
 **系统处理**
-- 按 `message_id/idempotency_key + sha256` 去重
-- 在 `deliveries.jsonl` 记录 `SKIPPED_DUPLICATE`
+- 以 `message_id + sha256` 为主去重键（`idempotency_key` 仅用于审计与可读关联）
+- 在 `deliveries.jsonl` 记录 `SKIPPED_DUPLICATE`（重复消息去重）与 `SKIPPED_SUPERSEDED`（旧命令丢弃）
 - 不再次投递到目标inbox
 
 ## Example D：缺外部文件/标准 → Human Gateway介入

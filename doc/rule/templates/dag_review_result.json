@@ -10,6 +10,14 @@
   },
   "score": 78,
   "decision": "REVISE",
+  "criteria_version": "dag_review_rubric.v1",
+  "score_breakdown": [
+    { "key": "executability", "name": "可执行性", "score": 80, "max": 100, "notes": "Tasks are runnable with declared inputs." },
+    { "key": "dependencies", "name": "依赖正确性", "score": 70, "max": 100, "notes": "Some dependencies need clarification." },
+    { "key": "io_completeness", "name": "输入输出闭合", "score": 75, "max": 100, "notes": "Missing acceptance evidence for some outputs." },
+    { "key": "routing_completeness", "name": "路由完整性", "score": 60, "max": 100, "notes": "Some outputs have unclear recipients." },
+    { "key": "risk_coverage", "name": "风险覆盖", "score": 70, "max": 100, "notes": "Risks identified but mitigation incomplete." }
+  ],
   "scores": {
     "executability": 80,
     "dependencies": 70,

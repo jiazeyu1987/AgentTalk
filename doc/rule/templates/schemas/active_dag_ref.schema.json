@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenttalk.local/schemas/active_dag_ref.schema.json",
+  "title": "ActiveDagRef",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "plan_id", "dag_kind", "task_dag_sha256", "updated_at"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "dag_kind": { "type": "string", "enum": ["meta", "business"] },
+    "task_dag_sha256": { "type": "string", "minLength": 1 },
+    "task_dag_revision": { "type": ["integer", "null"], "minimum": 0 },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "notes": { "type": ["string", "null"] }
+  }
+}

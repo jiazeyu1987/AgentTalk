@@ -3,6 +3,7 @@
   "message_id": "msg_20250108T103000Z_0001",
   "plan_id": "plan_a3f5b2c8",
   "task_id": "task_001",
+  "output_name": "backend_package.zip",
   "command_id": "cmd_task_001_001",
   "producer_agent_id": "agent_backend_developer",
   "type": "artifact",
@@ -20,7 +21,8 @@
     ]
   },
   "routing": {
-    "intended_recipients": ["agent_testing_engineer", "agent_general_manager"]
+    "intended_recipients": ["agent_testing_engineer", "agent_general_manager"],
+    "notes": "Non-authoritative hints only; router uses DAG deliver_to/routing_rules."
   },
   "correlation": {
     "trace_id": "uuid-1234567890"

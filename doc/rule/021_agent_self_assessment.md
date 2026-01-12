@@ -22,7 +22,7 @@ Agent接收到命令后，根据自己的提示词分析任务与自身能力的
 
 ### 1. 接收命令
 
-Agent从inbox收到命令文件 `cmd_*.json`。
+Agent 从 inbox 收到命令消息 `cmd_*.msg.json`（envelope `type=command`）。
 
 ### 2. 读取自身提示词
 
@@ -97,6 +97,8 @@ Agent将自评结果发送给上层Agent。
   "agent_id": "agent_product_manager",
   "command_id": "cmd_task_001",
   "plan_id": "plan_develop_ecommerce",
+  "task_id": "task_001",
+  "command_seq": 1,
   "score": 85,
   "decision": "ACCEPT",
   "reason": "任务在我的技能范围内...",

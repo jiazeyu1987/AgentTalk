@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "plan_a3f5b2c8",
+  "agent_id": "agent_backend_developer",
+  "updated_at": "2025-01-08T10:31:30Z",
+  "entries": [
+    {
+      "message_id": "msg_20250108T103000Z_0002",
+      "task_id": "task_001",
+      "output_name": "requirements",
+      "received_at": "2025-01-08T10:31:10Z",
+      "files": [
+        {
+          "path": "requirements.md",
+          "sha256": "sha256:REPLACE_ME",
+          "stored_at": "workspace/plan_a3f5b2c8/inputs/task_001/requirements/requirements.md"
+        }
+      ]
+    }
+  ]
+}

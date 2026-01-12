@@ -13,12 +13,14 @@
 1. **文件路由投递**：根据任务文件（DAG方案/路由表）将各Agent `outbox/<plan_id>/` 中的文件投递到目标Agent `inbox/<plan_id>/`（见PR-001/PR-002/PR-003）。
 2. **集中式状态与进度**：采集各Agent状态与任务进度，形成全局可观测视图，支持告警、归档与审计（见PR-010/PR-017/PR-025）。
 3. **产物收集与归档**：收集“验证后的产物/最终交付物”，统一落盘到系统归档区，避免引入可被多个Agent直接读写的共享目录。
+4. **结论收集与归档**：收集协调员产出的 `decision_record.json`，统一落盘到 `system_runtime/plans/<plan_id>/decisions/`，作为 Dashboard/Monitor 的权威业务结论源。
+5. **回执收集与归档**：收集执行方产出的 `ack_<message_id>.json`，统一落盘到 `system_runtime/plans/<plan_id>/acks/`，作为 Monitor/Dashboard 的权威处理状态源。
 
 同时系统程序应实现“文件即消息”的可靠性增强：
 - **原子投递**：复制到目标目录时先写临时文件再原子重命名，避免下游读到半写入文件（见PR-001）。
-- **去重与幂等**：按 `message_id/idempotency_key + sha256` 去重，防止重复投递/重复处理。
+- **去重与幂等**：以 `message_id + sha256` 为主去重键；`idempotency_key` 仅用于审计与人类可读关联，防止“双口径去重”导致行为分叉。
 - **投递日志**：记录每次投递的delivery_id、来源/目标、时间、哈希，便于审计与重放（见PR-017）。
-- **回执汇总**：可收集 `ack_<message_id>.json`，形成端到端“已投递/已处理”视图（见PR-001/PR-025）。
+- **回执汇总**：收集并归档 `ack_<message_id>.json`（到 `system_runtime/plans/<plan_id>/acks/`），形成端到端“已投递/已处理”视图（见PR-001/PR-025）。
 - **死信隔离**：将不可解析/不符合schema的消息隔离到deadletter并告警（见PR-010）。
 
 ## 全局配置（示例）
@@ -71,10 +73,17 @@
 system_runtime/
 ├── plans/
 │   └── <plan_id>/
+│       ├── active_dag_ref.json      # 当前阶段DAG指针（系统生成/更新，供路由/监控/看板统一口径）
 │       ├── task_dag.json            # DAG/路由表（来自规划者，如GM）
 │       ├── plan_manifest.json       # 本plan涉及的Agent/任务清单（可选）
 │       ├── plan_status.json         # 汇总进度（系统生成）
-│       └── deliveries.jsonl         # 投递日志（每行一条；见 delivery_log_entry.json）
+│       ├── deliveries.jsonl         # 投递日志（每行一条；见 delivery_log_entry.json）
+│       ├── commands/                # 命令归档区（系统生成，用于审计/重放）
+│       │   └── cmd_*.msg.json       # 从规划者 outbox 收到并校验通过的“命令消息”（envelope type=command）
+│       ├── decisions/               # 结论归档区（系统生成，用于Dashboard/审计）
+│       │   └── decision_record_*.json
+│       └── dag_history/             # DAG 历史归档（系统生成，用于审计/回溯）
+│           └── task_dag.<ts>.<sha>.json
 ├── deadletter/
 │   └── <plan_id>/                   # 无法投递/无法解析/超限重试的消息（系统生成）
 ├── alerts/
@@ -92,6 +101,9 @@ system_runtime/
 - `doc/rule/templates/delivery_state_machine.md`
 - `doc/rule/templates/schema_versioning.md`
 - `doc/rule/templates/delivery_log_entry.json`
+- `doc/rule/templates/command_envelope.msg.json`
+- `doc/rule/templates/active_dag_ref.json`
+- `doc/rule/templates/decision_record.json`
 - `doc/rule/templates/routing_priority.md`
 - `doc/rule/templates/replay_procedure.md`
 - `doc/rule/templates/dag_review_result.json`
@@ -102,7 +114,54 @@ system_runtime/
 - `doc/rule/templates/e2e_test_result.json`
 - `doc/rule/templates/security_scan_result.json`
 - `doc/rule/templates/release_manifest.json`
-```
+
+## 命令归档区（commands/）
+
+为支持“同一 Agent 同时参与多个 plan”且不混线、可重放、可审计，系统程序应把所有通过校验的“命令消息”（`cmd_*.msg.json`，envelope `type=command`）归档到：
+- `system_runtime/plans/<plan_id>/commands/`
+
+约束（MVP 强制）：
+- 命令投递目标不由命令文件决定；系统程序以“当前阶段 DAG”的 `nodes[].assigned_agent_id` 为唯一来源进行命令投递。
+- 命令消息必须包含 `message_id`（链路唯一ID）以及可绑定字段（`plan_id/task_id/command_id`）；系统程序据此把命令绑定到 DAG 节点并执行投递与去重。
+
+## 当前阶段DAG指针（active_dag_ref.json，必须原子更新）
+
+为避免 Router/Monitor/Dashboard 在“Meta-DAG vs Business-DAG”口径上分叉，系统程序应维护：
+- `system_runtime/plans/<plan_id>/active_dag_ref.json`
+
+硬规则（MVP 必须写死）：
+- `active_dag_ref.task_dag_sha256` 必须与 `system_runtime/plans/<plan_id>/task_dag.json` 内容一致；不一致视为系统异常，暂停该 plan 的投递并告警。
+- 在 meta→business 切换时：必须先归档旧 DAG 到 `dag_history/`，再原子更新 `task_dag.json`，最后原子更新 `active_dag_ref.json`（active 指针必须最后更新）。
+
+## 结论归档区（decisions/，必须统一数据源）
+
+为让 Monitor/Dashboard 不再“识别一堆不同结论文件”，系统程序应把协调员产出的 `decision_record.json` 汇总归档到：
+- `system_runtime/plans/<plan_id>/decisions/`
+
+硬规则（MVP 必须写死）：
+- `decision_record.json` 必须通过 schema 校验（`decision_record.schema.json`），否则进入 DLQ + alert。
+- 归档采用原子写入（tmp→rename），避免 Dashboard/Monitor 读到半文件。
+- Dashboard/Monitor 对“业务结论”的统一数据源是 `decisions/`，而不是散落在各 Agent outbox 的零散文件。
+
+### 文件命名与去重（必须写死）
+
+- 文件名：`decision_record_<decision_id>.json`
+- `decision_id` 必须全局唯一（至少在同一 plan 内唯一）
+- 系统程序的去重键口径：
+  - 主键：`decision_id + sha256(文件内容)`
+  - 若同 `decision_id` 且 sha256 相同：可视为重复写入，归档时记录 `SKIPPED_DUPLICATE`
+  - 若同 `decision_id` 但 sha256 不同：视为“决策ID被重用/篡改/bug”，进入 DLQ + alert（DECISION_ID_REUSED_WITH_DIFFERENT_CONTENT）
+
+### 与 release_manifest 的权威关系（必须写死）
+
+- `release_manifest.json` 是“是否可交付/是否已发布”的权威放行判据。
+- `decision_record.json` 用于统一审计/时间线展示与业务判定落盘；在 release 场景下应与 `release_manifest.json.decision` 保持一致（不一致视为告警信号）。
+
+### 读写一致性窗口（必须说明）
+
+系统运行期允许“最终一致”：
+- 先出现 `decision_record.json`，后补齐证据文件（或反之）是允许的；Dashboard/Monitor 应标注“证据暂缺/稍后一致”而不是误判。
+- 系统程序写入顺序建议：先归档被引用的证据文件（若系统会收集），再原子写入 `decision_record_*`；避免“决策已出现但证据长期缺失”。
 
 ### plan_id子文件夹
 
@@ -161,8 +220,9 @@ reviewed_user_stories.json
 
 系统程序以“只读”方式采集Agent状态，数据来源推荐二选一或同时使用：
 
-1. 读取Agent目录下的 `agent_state.json`（见PR-008）
-2. 读取Agent在 `outbox/<plan_id>/` 输出的状态快照文件（例如 `status_heartbeat.json` / `task_state.json`）
+1. （建议写死）读取Agent自写的心跳快照：`agents/<agent_id>/status_heartbeat.json`（见 `doc/develop/05_agent_heartbeat_and_dispatch.md`）
+2. （可选）读取Agent在 `outbox/<plan_id>/` 输出的计划级状态/回执文件（例如 `ack_<message_id>.json`、`task_state*.json`），用于端到端视图与审计
+3. （兼容）若历史实现仍使用 `agent_state.json`（见PR-008），系统程序可继续采集，但应逐步迁移到上述“写死路径”的心跳快照口径
 
 **文件内容**:
 ```json

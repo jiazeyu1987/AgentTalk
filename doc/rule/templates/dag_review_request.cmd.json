@@ -11,11 +11,9 @@
   "timeout": 1800,
   "idempotency_key": "plan_a3f5b2c8:review:dag:v1",
   "on_complete": {
-    "send_to": ["agent_general_manager"],
     "message_template": "DAG review completed: {result}, score: {score}"
   },
   "on_failure": {
-    "send_to": ["agent_general_manager"],
     "message_template": "DAG review failed: {error}"
   }
 }

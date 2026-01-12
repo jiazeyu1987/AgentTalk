@@ -10,6 +10,7 @@
     "message_id": { "type": "string", "minLength": 1 },
     "plan_id": { "type": "string", "minLength": 1 },
     "task_id": { "type": ["string", "null"] },
+    "output_name": { "type": ["string", "null"], "minLength": 1 },
     "command_id": { "type": ["string", "null"] },
     "producer_agent_id": { "type": "string", "minLength": 1 },
     "type": { "type": "string", "minLength": 1 },
@@ -18,10 +19,15 @@
     "idempotency_key": { "type": ["string", "null"] },
     "payload": {
       "type": "object",
-      "required": ["files"],
       "properties": {
+        "command": {
+          "anyOf": [
+            { "$ref": "https://agenttalk.local/schemas/command.schema.json" },
+            { "type": "null" }
+          ]
+        },
         "files": {
-          "type": "array",
+          "type": ["array", "null"],
           "minItems": 1,
           "items": {
             "type": "object",
@@ -44,11 +50,44 @@
         "intended_recipients": {
           "type": ["array", "null"],
           "items": { "type": "string", "minLength": 1 }
-        }
+        },
+        "notes": { "type": ["string", "null"] }
       },
       "additionalProperties": true
     },
     "correlation": { "type": ["object", "null"], "additionalProperties": true }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "artifact" }
+        }
+      },
+      "then": {
+        "required": ["task_id", "output_name"],
+        "properties": {
+          "task_id": { "type": "string", "minLength": 1 },
+          "output_name": { "type": "string", "minLength": 1 },
+          "payload": { "type": "object", "required": ["files"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "command" }
+        }
+      },
+      "then": {
+        "required": ["task_id", "command_id"],
+        "properties": {
+          "task_id": { "type": "string", "minLength": 1 },
+          "command_id": { "type": "string", "minLength": 1 },
+          "payload": { "type": "object", "required": ["command"] }
+        }
+      }
+    }
+  ]
 }
 

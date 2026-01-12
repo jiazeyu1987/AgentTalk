@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "agent_id": "agent_backend_developer",
+  "poll_interval_seconds": 2,
+  "max_new_messages_per_tick": 50,
+  "max_resume_messages_per_tick": 10,
+  "plans": {
+    "scan_mode": "auto",
+    "allowlist": null
+  },
+  "paths": {
+    "inbox_dirname": "inbox",
+    "outbox_dirname": "outbox",
+    "workspace_dirname": "workspace"
+  },
+  "schema_validation": {
+    "enabled": true,
+    "schemas_base_dir": "doc/rule/templates/schemas"
+  }
+}

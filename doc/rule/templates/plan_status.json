@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "plan_a3f5b2c8",
+  "active_task_dag_sha256": "sha256:REPLACE_ME",
+  "updated_at": "2025-01-08T10:35:00Z",
+  "blocked_summary": {
+    "INPUT": 1,
+    "REVIEW": 0,
+    "HUMAN": 0
+  },
+  "tasks": [
+    {
+      "task_id": "task_001",
+      "assigned_agent_id": "agent_backend_developer",
+      "state": "RUNNING",
+      "updated_at": "2025-01-08T10:34:00Z",
+      "blocking": null
+    }
+  ]
+}
+

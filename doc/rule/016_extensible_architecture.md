@@ -117,10 +117,7 @@
 ```json
 {
   "on_complete": {
-    "send_to_condition": [
-      {"min_score": 80, "send_to": ["agent_approver"]},
-      {"min_score": 0, "send_to": ["agent_reviewer"]}
-    ]
+    "notes": "Routing is defined by DAG deliver_to/routing_rules; branching is modeled as explicit follow-up tasks in DAG (review/revise/approve)."
   }
 }
 ```

@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "plan_a3f5b2c8",
+  "task_id": "task_001",
+  "agent_id": "agent_backend_developer",
+  "state": "RUNNING",
+  "updated_at": "2025-01-08T10:31:30Z",
+  "message_id": "msg_20250108T103000Z_0001",
+  "command_id": "cmd_task_001_001",
+  "command_seq": 1,
+  "blocking": null,
+  "progress": {
+    "percent": 60,
+    "note": "Compiling..."
+  },
+  "result": null
+}

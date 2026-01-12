@@ -40,7 +40,7 @@ agent_xxx_name/
 ├── inbox/                          # ⭐ 接收消息（唯一的交互入口）
 │   └── <plan_id>/                  # 按plan组织
 │       ├── *.msg.json              # 任务消息
-│       ├── cmd_*.json              # 执行命令
+│       ├── cmd_*.msg.json          # 命令消息（envelope type=command）
 │       └── <资源文件>              # 任意扩展名的资源文件
 │
 ├── outbox/                         # ⭐ 发送消息（唯一的交互出口）
@@ -154,7 +154,7 @@ agent_xxx_name/
 
 **文件类型**:
 - `*.msg.json`: 任务消息
-- `cmd_*.json`: 执行命令
+- `cmd_*.msg.json`: 命令消息（执行命令通过 message_envelope 投递）
 - 任意扩展名: 资源文件（文档、数据、配置等）
 
 **组织方式**: 按`plan_id`组织到子目录

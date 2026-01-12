@@ -4,16 +4,66 @@
   "title": "ExecuteCommand",
   "type": "object",
   "additionalProperties": true,
-  "required": ["schema_version", "command_id", "plan_id", "prompt", "required_inputs", "wait_for_inputs", "score_required", "timeout"],
+  "required": ["schema_version", "command_id", "plan_id", "task_id", "command_seq", "dag_ref", "prompt", "required_inputs", "wait_for_inputs", "score_required", "timeout"],
   "properties": {
     "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-    "command_id": { "type": "string", "minLength": 1 },
+    "command_id": { "type": "string", "minLength": 1, "pattern": "^cmd_.+_[0-9]{3,}$" },
     "plan_id": { "type": "string", "minLength": 1 },
-    "task_id": { "type": ["string", "null"] },
+    "task_id": { "type": "string", "minLength": 1 },
+    "command_seq": { "type": "integer", "minimum": 0 },
+    "dag_ref": {
+      "type": "object",
+      "required": ["sha256"],
+      "properties": {
+        "sha256": { "type": "string", "minLength": 1 },
+        "revision": { "type": ["integer", "null"], "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
     "prompt": { "type": "string", "minLength": 1 },
     "required_inputs": {
       "type": "array",
+      "description": "Compatibility field; may be an empty array when resolved_inputs is present.",
       "items": { "type": "string", "minLength": 1 }
+    },
+    "resolved_inputs": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["input_name", "paths", "required"],
+        "properties": {
+          "input_name": { "type": "string", "minLength": 1 },
+          "required": { "type": "boolean" },
+          "paths": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+          "description": { "type": ["string", "null"] },
+          "sensitivity": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "produces": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["output_name", "files"],
+        "properties": {
+          "output_name": { "type": "string", "minLength": 1 },
+          "files": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": ["path"],
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "content_type": { "type": ["string", "null"] }
+              }
+            }
+          }
+        }
+      }
     },
     "wait_for_inputs": { "type": "boolean" },
     "score_required": { "type": "boolean" },
@@ -23,7 +73,6 @@
     "on_complete": {
       "type": ["object", "null"],
       "properties": {
-        "send_to": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1 } },
         "message_template": { "type": ["string", "null"] }
       },
       "additionalProperties": true
@@ -31,7 +80,6 @@
     "on_failure": {
       "type": ["object", "null"],
       "properties": {
-        "send_to": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1 } },
         "message_template": { "type": ["string", "null"] }
       },
       "additionalProperties": true

@@ -30,6 +30,8 @@
 
 1. `CREATED`：生产方已在 outbox/<plan_id>/ 写入 payload 与 envelope
 2. `DELIVERED`：系统路由已复制到目标 inbox/<plan_id>/
+2.1 `SKIPPED_DUPLICATE`：系统路由判定为重复消息（同 message_id+sha256），不再重复投递（仅记录到 deliveries.jsonl）
+2.2 `SKIPPED_SUPERSEDED`：系统路由判定为旧命令（同 plan_id+task_id 存在更大 command_seq），不再投递（仅记录到 deliveries.jsonl；必须记录 superseded_by_* 字段以便审计）
 3. `CONSUMED`：目标Agent已读取并接受处理（ACK: `CONSUMED`）
 4. `SUCCEEDED`：目标Agent处理成功（ACK: `SUCCEEDED`）
 5. `FAILED`：目标Agent处理失败但可重试/可返工（ACK: `FAILED` + reason）
@@ -57,6 +59,7 @@ ACK字段最小集合（见模板 `ack.json`）：
 
 适用场景：
 - `DELIVERED` 后长期无 `CONSUMED`（目标Agent可能未启动/卡死）
+- `SKIPPED_SUPERSEDED`：不属于异常；应可审计（谁覆盖了谁、覆盖原因、覆盖时刻）
 - `FAILED` 且 `retriable=true`
 
 建议策略：

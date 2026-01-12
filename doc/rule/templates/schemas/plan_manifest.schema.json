@@ -37,7 +37,21 @@
         }
       }
     },
-    "policies": { "type": ["object", "null"], "additionalProperties": true }
+    "policies": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "properties": {
+        "timeouts": {
+          "type": ["object", "null"],
+          "additionalProperties": true,
+          "properties": {
+            "dag_review": { "type": ["object", "null"], "additionalProperties": true },
+            "artifact_validation": { "type": ["object", "null"], "additionalProperties": true },
+            "release_gate": { "type": ["object", "null"], "additionalProperties": true }
+          }
+        }
+      }
+    }
   }
 }
 

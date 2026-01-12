@@ -3,10 +3,39 @@
   "command_id": "cmd_task_001_001",
   "plan_id": "plan_a3f5b2c8",
   "task_id": "task_001",
+  "command_seq": 1,
+  "dag_ref": {
+    "sha256": "sha256_of_system_runtime_plans_plan_a3f5b2c8_task_dag_json",
+    "revision": 1
+  },
   "prompt": "Describe what to do, inputs to use, and outputs to produce.",
   "required_inputs": [
     "requirements.md",
     "database_schema.json"
+  ],
+  "resolved_inputs": [
+    {
+      "input_name": "requirements",
+      "required": true,
+      "paths": ["requirements.md"],
+      "description": "Requirements document",
+      "sensitivity": "UNKNOWN"
+    },
+    {
+      "input_name": "database_schema",
+      "required": true,
+      "paths": ["database_schema.json"],
+      "description": "Database schema",
+      "sensitivity": "UNKNOWN"
+    }
+  ],
+  "produces": [
+    {
+      "output_name": "requirements",
+      "files": [
+        { "path": "requirements.md", "content_type": "text/markdown" }
+      ]
+    }
   ],
   "wait_for_inputs": true,
   "score_required": false,
@@ -14,11 +43,9 @@
   "timeout": 3600,
   "idempotency_key": "plan_a3f5b2c8:task_001:cmd_task_001_001",
   "on_complete": {
-    "send_to": ["agent_general_manager"],
     "message_template": "Task completed: {result}"
   },
   "on_failure": {
-    "send_to": ["agent_general_manager"],
     "message_template": "Task failed: {error}"
   }
 }

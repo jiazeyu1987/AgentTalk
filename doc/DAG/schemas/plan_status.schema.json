@@ -16,7 +16,7 @@
       "items": {
         "type": "object",
         "additionalProperties": true,
-        "required": ["task_id", "state", "updated_at"],
+        "required": ["task_id", "state", "updated_at", "attempts"],
         "properties": {
           "task_id": { "type": "string", "minLength": 1 },
           "state": {
@@ -35,7 +35,14 @@
           },
           "updated_at": { "type": "string", "format": "date-time" },
           "assigned_agent_id": { "type": ["string", "null"] },
-          "attempts": { "type": ["object", "null"], "additionalProperties": true },
+          "attempts": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["reexecute_count"],
+            "properties": {
+              "reexecute_count": { "type": "integer", "minimum": 0 }
+            }
+          },
           "blocking": { "type": ["object", "null"], "additionalProperties": true },
           "outputs": { "type": ["array", "null"], "items": { "type": "object", "additionalProperties": true } }
         }

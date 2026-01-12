@@ -31,6 +31,7 @@ AgentTalk系统通过多层日志追踪机制确保所有Agent活动可追溯、
   "plan_id": "plan_001",
   "task_id": "task_001",
   "command_id": "cmd_001",
+  "command_seq": 1,
   "agent_id": "agent_general_manager",
   "timestamp": "2025-01-08T10:30:00Z",
   "level": "INFO",
@@ -212,7 +213,7 @@ AgentTalk系统通过多层日志追踪机制确保所有Agent活动可追溯、
 为保证“只用文件传递”的可靠性，推荐在输入/输出日志中记录以下元数据：
 
 - `sha256`: 文件内容哈希（用于完整性校验与去重）
-- `idempotency_key`: 幂等键（用于“重复消息不重复执行”）
+- `idempotency_key`: 仅用于审计与人类可读关联（不参与主去重键；主去重键为 `message_id + sha256`）
 - `schema_version`: 命令/消息schema版本（用于解析兼容与死信处理）
 - `delivery`: 投递信息（from_agent、to_agent、delivered_at、delivery_id）
 

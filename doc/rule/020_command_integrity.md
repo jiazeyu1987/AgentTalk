@@ -28,6 +28,8 @@ Agent不手动构造JSON命令，而是通过调用专门的skill来生成命令
 Agent收集命令所需的信息：
 - command_id
 - plan_id
+- task_id
+- command_seq（推荐，用于“同一task多条命令”的可计算排序）
 - prompt
 - required_inputs
 - 其他参数
@@ -41,6 +43,8 @@ Agent调用专门的skill，例如"generate_command"：
 请生成一个执行命令，包含以下参数：
 - command_id: cmd_task_001
 - plan_id: plan_develop_ecommerce
+- task_id: task_001
+- command_seq: 1
 - prompt: 分析需求文档并生成用户故事
 - required_inputs: ["requirements.md"]
 - wait_for_inputs: true
@@ -57,6 +61,8 @@ Skill根据参数生成完整的命令JSON：
   "schema_version": "1.0",
   "command_id": "cmd_task_001",
   "plan_id": "plan_develop_ecommerce",
+  "task_id": "task_001",
+  "command_seq": 1,
   "idempotency_key": "plan_develop_ecommerce:task_001:cmd_task_001",
   "prompt": "分析需求文档并生成用户故事",
   "required_inputs": ["requirements.md"],
@@ -64,11 +70,9 @@ Skill根据参数生成完整的命令JSON：
   "score_required": true,
   "score_criteria": "根据用户故事的完整性、清晰度、可测试性评分0-100",
   "on_complete": {
-    "send_to": ["agent_general_manager"],
     "message_template": "用户故事生成完成: {result}, 评分: {score}"
   },
   "on_failure": {
-    "send_to": ["agent_general_manager"],
     "message_template": "用户故事生成失败: {error}"
   },
   "timeout": 3600
@@ -82,13 +86,15 @@ Skill自动验证生成的命令：
 **检查项**:
 1. ✅ command_id存在且唯一
 2. ✅ plan_id存在
-3. ✅ prompt存在且非空
-4. ✅ required_inputs是数组
-5. ✅ wait_for_inputs是布尔值
-6. ✅ score_required是布尔值
-7. ✅ on_complete存在
-8. ✅ on_failure存在
-9. ✅ timeout是正整数
+3. ✅ task_id存在且非空（用于绑定DAG节点并投递给assigned_agent_id）
+4. ✅ command_seq存在且可排序（MVP 必须；并且必须等于 command_id 末尾序号）
+5. ✅ prompt存在且非空
+6. ✅ required_inputs是数组
+7. ✅ wait_for_inputs是布尔值
+8. ✅ score_required是布尔值
+9. ✅ on_complete存在（可选，仅用于本地通知/日志）
+10. ✅ on_failure存在（可选，仅用于本地通知/日志）
+11. ✅ timeout是正整数
 
 ### 5. 返回完整命令
 
@@ -112,6 +118,11 @@ Skill返回验证通过的命令：
 
 **示例**: `"cmd_task_001_001"`
 
+补充（MVP 必须写死）：
+- `command_id` 必须符合：`cmd_<task_id>_<NNN...>`（末尾序号至少3位数字）
+- `command_seq` 必须等于 `command_id` 最末尾序号（从右侧最后一个 `_` 之后解析为整数）；若不一致视为命令不合法
+- `command_id` 中的 `<task_id>` 必须等于字段 `task_id`（不允许“命令ID写的是别的task”）
+
 #### plan_id
 
 关联的plan标识符。
@@ -119,6 +130,14 @@ Skill返回验证通过的命令：
 **格式**: 字符串
 
 **示例**: `"plan_develop_ecommerce"`
+
+#### task_id（MVP 强制）
+
+命令绑定到 DAG 节点的关键字段。系统路由程序以 `task_id` 在“当前阶段 DAG”中定位 `nodes[]`，并使用该节点的 `assigned_agent_id` 作为唯一投递目标。
+
+**格式**: 字符串，非空
+
+**示例**: `"task_001"`
 
 #### prompt
 
@@ -156,12 +175,11 @@ Skill返回验证通过的命令：
 
 完成后的操作。
 
-**格式**: 对象，包含send_to和message_template
+**格式**: 对象，包含message_template（用于本地通知/日志；不作为跨Agent投递路由来源）
 
 **示例**:
 ```json
 {
-  "send_to": ["agent_general_manager"],
   "message_template": "任务完成: {result}"
 }
 ```
@@ -170,12 +188,11 @@ Skill返回验证通过的命令：
 
 失败时的操作。
 
-**格式**: 对象，包含send_to和message_template
+**格式**: 对象，包含message_template（用于本地通知/日志；不作为跨Agent投递路由来源）
 
 **示例**:
 ```json
 {
-  "send_to": ["agent_general_manager"],
   "message_template": "任务失败: {error}"
 }
 ```
@@ -221,6 +238,17 @@ Skill返回验证通过的命令：
 **格式**: 字符串
 
 **示例**: `"plan_001:task_002:cmd_task_002_001"`
+
+#### dag_ref（MVP 必须）
+
+用于防止“旧命令跑在新DAG上”。命令生成时必须把当前 `task_dag.json` 的 `sha256`（以及可选 revision）写入命令，Router 在投递前校验一致性。
+
+**示例**:
+```json
+{
+  "dag_ref": { "sha256": "..." }
+}
+```
 
 #### payload_hash（推荐）
 

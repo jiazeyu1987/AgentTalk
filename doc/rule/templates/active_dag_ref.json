@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "plan_a3f5b2c8",
+  "dag_kind": "meta",
+  "task_dag_sha256": "sha256:REPLACE_ME",
+  "task_dag_revision": 1,
+  "updated_at": "2025-01-08T10:00:00Z",
+  "notes": "Pointer to the currently active DAG for routing/monitoring/dashboard. When switching meta->business, archive old DAG to dag_history and update this ref atomically."
+}

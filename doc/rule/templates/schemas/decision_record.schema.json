@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenttalk.local/schemas/decision_record.schema.json",
+  "title": "DecisionRecord",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "decision_id", "plan_id", "decision_type", "decision", "decided_by_agent_id", "created_at", "subject"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "decision_id": { "type": "string", "minLength": 1 },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "decision_type": {
+      "type": "string",
+      "enum": ["DAG_REVIEW", "PROPOSAL_REVIEW", "ARTIFACT_VALIDATION", "RELEASE_GATE", "RELEASE", "HUMAN_DECISION", "REPLAN_DECISION"]
+    },
+    "decision": { "type": "string", "enum": ["APPROVE", "REJECT", "REVISE", "PASS", "FAIL", "ACKNOWLEDGED"] },
+    "decided_by_agent_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "subject": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["task_dag", "proposal", "artifact", "release", "human_request", "task"] },
+        "task_id": { "type": ["string", "null"] },
+        "output_name": { "type": ["string", "null"] },
+        "ref_sha256": { "type": ["string", "null"] },
+        "ref_revision": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "missing_participants": {
+      "type": ["array", "null"],
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "evidence_files": {
+      "type": ["array", "null"],
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "notes": { "type": ["string", "null"] }
+  }
+}

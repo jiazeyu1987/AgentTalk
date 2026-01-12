@@ -14,6 +14,22 @@
     "dag": { "type": ["object", "null"], "additionalProperties": true },
     "score": { "type": "number", "minimum": 0, "maximum": 100 },
     "decision": { "type": "string", "enum": ["APPROVE", "REVISE", "REJECT"] },
+    "criteria_version": { "type": ["string", "null"], "minLength": 1 },
+    "score_breakdown": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["key", "score", "max"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "name": { "type": ["string", "null"] },
+          "score": { "type": "number", "minimum": 0 },
+          "max": { "type": "number", "minimum": 1 },
+          "notes": { "type": ["string", "null"] }
+        }
+      }
+    },
     "scores": { "type": ["object", "null"], "additionalProperties": true },
     "issues": { "type": ["array", "null"], "items": { "type": "object", "additionalProperties": true } },
     "recommendation": { "type": ["string", "null"] }

@@ -6,442 +6,347 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AgentTalk is a multi-agent collaboration system using LLMs to accomplish complex tasks through agent specialization and consensus-based decision making. The system enables autonomous task execution through a layered architecture with core programs (Python) and skills (LLM-driven).
+AgentTalk is a multi-agent collaboration system using file-based message passing for task coordination. The system consists of:
 
-**Key Design Philosophies**:
-- **Core + Skills**: Core programs (100% stable Python) handle essential infrastructure; skills (flexible but may fail) handle business logic
-- **Anti-Hallucination**: Agents block when lacking inputs instead of spinning or hallucinating
-- **Wake-Up Mechanism**: Agents automatically wake when inputs become available
-- **Resource Optimization**: Agents auto-dormant after idle timeout, wake on demand
+1. **Python Package** (`agenttalk/`): Core infrastructure modules for heartbeat, router, monitor, dashboard, and release coordination
+2. **CLI Tools**: Standalone entry points for running system components
+3. **Design Documentation** (`doc/`): Rules, DAG specifications, and process documentation defining the system architecture
 
-**Important**: This is currently a **design and documentation phase**. The `template/agent_template/` directory contains reference implementations, but actual agents have not been deployed to `system/agents/` yet.
+**Current State**: This is an MVP implementation with core infrastructure in place. The system implements:
+- **Heartbeat daemon** (`agenttalk.heartbeat`): Agent inbox polling, command execution, artifact production
+- **Router** (`agenttalk.router`): Inter-agent message delivery, DAG-based routing
+- **Monitor** (`agenttalk.monitor`): Plan status aggregation and tracking
+- **Dashboard** (`agenttalk.dashboard`): FastAPI-based dashboard for monitoring
+- **Release Coordinator** (`agenttalk.release`): Release workflow orchestration
 
 ---
 
 ## Development and Testing
 
-### Creating a Test Agent from Template
+### Installation
 
 ```bash
-# 1. Copy the template to create a new agent
-cp -r template/agent_template/ system/agents/agent_test_myagent/
+# Install dependencies
+pip install -e .
 
-# 2. Edit the agent configuration
-vim system/agents/agent_test_myagent/agent_profile.json
-
-# 3. Navigate to the agent directory
-cd system/agents/agent_test_myagent/
-
-# 4. Start the agent (foreground)
-python core/main.py
+# Install dev dependencies (for testing)
+pip install -r requirements-dev.txt
 ```
 
-### Agent Profile Configuration
+### Running Tests
 
-Edit `agent_profile.json` to configure your agent:
+```bash
+# Run all tests
+pytest
 
-```json
+# Run a specific test file
+pytest tests/test_heartbeat.py
+
+# Run with verbose output
+pytest -v
+
+# Run specific test
+pytest tests/test_heartbeat.py::test_cli_parses_args_and_invokes_runner
+```
+
+### Starting System Components
+
+**Heartbeat Daemon** (runs inside each agent):
+```bash
+python agenttalk_heartbeat.py --agent-root /path/to/agents/agent_xxx --schemas-base-dir doc/rule/templates/schemas
+```
+
+**Router** (system-wide message routing):
+```bash
+python agenttalk_router.py --agents-root /path/to/agents --system-runtime /path/to/system_runtime --schemas-base-dir doc/rule/templates/schemas
+```
+
+**Monitor** (plan status aggregation):
+```bash
+python agenttalk_monitor.py --agents-root /path/to/agents --system-runtime /path/to/system_runtime --schemas-base-dir doc/rule/templates/schemas
+```
+
+**Dashboard** (web UI):
+```bash
+python agenttalk_dashboard.py --system-runtime /path/to/system_runtime --host 127.0.0.1 --port 8000
+```
+
+### Creating a Test Agent
+
+```bash
+# 1. Create agent directory structure
+mkdir -p agents/agent_test_myagent/{inbox,outbox,workspace}
+
+# 2. Create heartbeat config
+cat > agents/agent_test_myagent/heartbeat_config.json << EOF
 {
+  "schema_version": "1.0",
   "agent_id": "agent_test_myagent",
-  "agent_name": "My Test Agent",
-  "lifecycle": {
-    "idle_timeout_seconds": 1800,
-    "enable_dormant": true,
-    "wakeup_check_interval": 10,
-    "auto_wakeup_on_message": true
-  },
-  "heartbeat": {
-    "interval_seconds": 10
-  },
-  "visibility_list": {
-    "can_see": [],
-    "can_be_seen_by": []
-  }
-}
-```
-
-### Starting and Stopping Agents
-
-**Start an agent**:
-```bash
-cd system/agents/agent_xxx/
-python core/main.py
-```
-
-**Stop an agent**:
-- Press `Ctrl+C` to gracefully stop
-- Or use: `kill -TERM $(cat .runtime/heartbeat.pid)`
-
-### Checking Agent Status
-
-```bash
-# View agent state (requires jq)
-cat agent_state.json | jq .
-
-# Check recent heartbeat
-tail -20 logs/activity.jsonl | grep heartbeat
-
-# View all logs in real-time
-tail -f logs/activity.jsonl
-
-# View decision log
-tail -50 logs/decision_log.jsonl
-
-# Check for errors
-grep ERROR logs/activity.jsonl | tail -20
-```
-
-### Wake Up a Dormant Agent
-
-```bash
-# Method 1: Send wakeup signal via Python (if implemented)
-python -m core.wakeup_sender agent_xxx "Manual wakeup"
-
-# Method 2: Create signal file directly
-cat > system/agents/agent_xxx/inbox/wakeup_signal.json << EOF
-{
-  "type": "WAKEUP_SIGNAL",
-  "from": "user",
-  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "reason": "Manual wakeup"
+  "poll_interval_seconds": 10,
+  "scan_mode": "allowlist_only",
+  "allowlist": ["plan_001"],
+  "max_new_messages_per_tick": 100,
+  "max_resume_messages_per_tick": 50,
+  "schema_validation_enabled": true,
+  "schemas_base_dir": "doc/rule/templates/schemas"
 }
 EOF
+
+# 3. Start the heartbeat daemon
+python agenttalk_heartbeat.py --agent-root agents/agent_test_myagent
 ```
 
 ---
 
 ## Architecture
 
-### Agent Structure: Core Programs + Skills
+### System Components
 
 ```
-Agent = Core Programs (Python) + Skills (skill.md + scripts/)
+┌─────────────────┐      ┌──────────────┐      ┌─────────────────┐
+│  Heartbeat      │ ───> │   Router     │ <──> │  Agents         │
+│  (per agent)    │      │ (system)     │      │  (inbox/outbox) │
+└─────────────────┘      └──────────────┘      └─────────────────┘
+                                                        ▲
+                                                        │
+┌─────────────────┐      ┌──────────────┐              │
+│  Dashboard      │ <──> │   Monitor    │ <────────────┘
+│  (FastAPI)      │      │ (system)     │
+└─────────────────┘      └──────────────┘
 ```
 
-**Core Programs** (template/agent_template/core/):
-- `main.py` - Agent entry point, initializes and starts all components
-- `heartbeat_engine.py` - Periodically scans inbox/, dispatches messages to skills
-- `trace_logger.py` - Records all activity, decisions, errors, LLM conversations
-- `state_manager.py` - Maintains agent_state.json, manages status transitions
-- `skill_dispatcher.py` - Routes messages to appropriate skills
-- `wakeup_listener.py` - Monitors for wakeup signals when agent is dormant
-- `wakeup_sender.py` - Sends wakeup signals to other agents (if implemented)
+### Package Structure
 
-**Skills** (skills/):
-- Business logic modules defined in `skill.md` files
-- Optional `scripts/handler.py` for stable, direct Python execution
-- See doc/agent_architecture_v2.md for details
+**`agenttalk/`** - Main Python package:
+- `heartbeat/` - Agent inbox polling, command execution, artifact ingestion
+  - `app.py` - Core heartbeat logic (`run_once`, `run_forever`)
+  - `config.py` - Heartbeat configuration loading
+  - `handlers.py` - Command handler interface (`CommandHandler`)
+  - `state.py` - Task state and input index management
+  - `io.py` - File I/O utilities (atomic operations, path handling)
+  - `schema.py` - Schema registry and validation
+- `router/` - Inter-agent message routing
+  - `app.py` - Core router logic (DAG-based routing, delivery tracking)
+  - `dag.py` - DAG parsing and task assignment lookup
+  - `delivery_log.py` - Delivery log append-only storage
+  - `schema.py` - Router-specific schema validation
+- `monitor/` - Plan status aggregation and tracking
+  - `app.py` - Monitor that aggregates agent states into plan status
+- `dashboard/` - FastAPI dashboard for monitoring
+  - `app.py` - FastAPI application factory
+  - `storage.py` - Storage backend for plan status
+- `command_runner/` - Command execution pipeline
+  - `pipeline.py` - Artifact production and writing
+  - `types.py` - Command result and artifact types
+- `release/` - Release workflow orchestration
+  - `app.py` - Release coordinator logic
 
-**Critical Design Principle**: Use core programs (Python) for infrastructure that must be 100% stable. Use skills (skill.md) for flexible business logic that can tolerate intermittent failures.
-
-### Agent Lifecycle
-
-```
-STOPPED → STARTING → RUNNING ↔ IDLE → DORMANT (idle timeout)
-                                      ↑
-                                      └── Wakeup signal
-```
-
-- **RUNNING**: Processing tasks (heartbeat active, normal resource usage)
-- **IDLE**: No tasks, heartbeat running (low resource usage)
-- **DORMANT**: Long idle, heartbeat stopped, only wakeup listener active (minimal usage)
-- Auto-dormant after default 30 minutes of idle (configurable in agent_profile.json)
-
-### Agent Visibility Lists
-
-Each Agent has a **visibility list** defining which other Agents it can interact with. This is configured in `agent_profile.json`:
-
-```json
-{
-  "visibility_list": {
-    "can_see": ["agent_general_manager", "agent_developer_01"],
-    "can_be_seen_by": ["agent_general_manager"]
-  }
-}
-```
-
-**Key principles**:
-- Agents can only interact with those in their visibility list
-- General Manager sees all managers, managers see GM + their team
-- Different teams cannot see each other (unless configured)
-- See `doc/code/normal/visibility_list.md` for details
-
-### Directory Structure
+### Directory Layout
 
 ```
-agent_xxx_name/
-├── core/                           # Core Python programs
-│   ├── main.py                     # ⭐ Entry point
-│   ├── heartbeat_engine.py
-│   ├── trace_logger.py
-│   ├── state_manager.py
-│   ├── skill_dispatcher.py
-│   ├── wakeup_listener.py
-│   └── wakeup_sender.py
-├── agent_profile.json              # Agent configuration
-├── agent_state.json                # Runtime state (auto-generated)
-├── skills/                         # Business logic skills
-│   └── skill_xxx/
-│       ├── skill.md                # Skill definition
-│       ├── references/             # Reference docs
-│       └── scripts/                # Optional Python handlers
-├── templates/                      # Message/document/prompt templates
-├── configs/                        # Configuration files
-├── cache/                          # Cached data
-├── inbox/                          # Incoming messages
-├── outbox/                         # Outgoing messages
-├── workspace/                      # Task workspaces
-│   └── task_xxx/
-│       ├── trace/                  # Execution traces
-│       ├── inputs/, outputs/, work/
-│       └── task_state.json
-├── resources/                      # Static resources
-├── logs/                           # Activity logs
-│   ├── activity.jsonl              # All activities
-│   ├── decision_log.jsonl          # Agent decisions
-│   ├── error_chains.jsonl          # Error chains
-│   └── llm_calls.jsonl             # LLM calls
-└── .runtime/                       # Runtime files (not in git)
-    ├── heartbeat.pid
-    └── heartbeat.lock
+agenttalk/
+├── agenttalk/                    # Python package
+│   ├── heartbeat/
+│   ├── router/
+│   ├── monitor/
+│   ├── dashboard/
+│   ├── command_runner/
+│   └── release/
+├── agents/                       # Agent working directories (runtime)
+│   └── agent_xxx/
+│       ├── inbox/               # Incoming messages (per plan)
+│       ├── outbox/              # Outgoing messages (per plan)
+│       ├── workspace/           # Task workspaces
+│       └── heartbeat_config.json
+├── system_runtime/               # System-wide runtime state
+│   ├── plans/                   # Per-plan tracking
+│   │   └── <plan_id>/
+│   │       ├── deliveries.jsonl
+│   │       ├── commands/
+│   │       ├── acks/
+│   │       ├── task_dag.json
+│   │       └── plan_status.json
+│   ├── alerts/                  # System alerts (per plan)
+│   ├── deadletter/              # Failed messages (per plan)
+│   └── status_heartbeat.json    # System heartbeat summary
+├── doc/                         # Design documentation
+│   ├── rule/                    # System rules (PR-001 to PR-026)
+│   ├── DAG/                     # DAG specifications and semantics
+│   └── rule/templates/          # JSON templates and schemas
+├── tests/                       # Test suite
+├── agenttalk_heartbeat.py       # CLI: Heartbeat daemon
+├── agenttalk_router.py          # CLI: Router
+├── agenttalk_monitor.py         # CLI: Monitor
+├── agenttalk_dashboard.py       # CLI: Dashboard
+└── pyproject.toml               # Project configuration
 ```
 
-### Message Flow
+### Message Types and Flow
 
-```
-1. Message arrives in inbox/
-   ↓
-2. HeartbeatEngine scans (every 10s)
-   ↓
-3. SkillDispatcher routes to skill
-   ↓
-4. Skill processes (skill.md or scripts/handler.py)
-   ↓
-5. Message moved to inbox/.processed/
-   ↓
-6. Activity logged to logs/activity.jsonl
-```
+**Message Envelope** (`*.msg.json`):
+- `type`: "command" | "artifact"
+- `message_id`: Unique message identifier
+- `plan_id`: Plan identifier
+- `producer_agent_id`: Source agent
+- `task_id`/`output_name`: Task and output context
+- `payload`: Contains `command` or `files` metadata
 
-### File Types in Inbox
+**Message Flow**:
+1. Producer writes message envelope to `outbox/<plan_id>/`
+2. Router scans agent outboxes
+3. Router validates envelope and schema
+4. Router computes delivery targets from DAG or routing rules
+5. Router atomically copies envelope + payloads to target inboxes
+6. Router appends delivery record to `deliveries.jsonl`
+7. Target agent's heartbeat discovers and processes the message
 
-- `.msg.json` - Inter-agent messages (queued for processing)
-- `.cmd.json` - Commands (executed immediately)
-- `.sys.json` - System files (wakeup signals, etc.)
-- Resource files (any ext) - Documents, data, configs referenced by messages
+**Command Execution Flow**:
+1. Router delivers command envelope to assigned agent's inbox
+2. Agent heartbeat discovers command, checks inputs are available
+3. Heartbeat invokes command handler via `CommandHandler.handle_command()`
+4. Handler returns `CommandResult` with `ok` status and details
+5. Heartbeat writes ACK and task state to outbox
+6. If artifacts produced, writes artifact envelopes to outbox
 
-See `doc/code/file_type/README.md` for complete documentation.
+### DAG-Based Routing
+
+The system uses DAG (`task_dag.json`) for task routing:
+
+- **Nodes**: Tasks with `task_id`, `assigned_agent_id`, `depends_on`, `inputs`, `outputs`
+- **Edges**: Dependencies via `depends_on` and output routing via `outputs[].deliver_to`
+- **Command delivery**: Router uses `assigned_agent_id` to route commands
+- **Artifact delivery**: Router uses `outputs[].deliver_to` to route artifacts
+
+See `doc/DAG/semantics.md` for detailed DAG execution semantics.
 
 ---
 
 ## Key Concepts
 
-### Core Programs vs Skills
+### Schema-Based Validation
 
-| Aspect | Core Programs | Skills |
-|--------|--------------|--------|
-| **Stability** | ⭐⭐⭐⭐⭐ Must be 100% stable | ⭐⭐⭐ Can tolerate failure |
-| **Implementation** | Python directly executed | skill.md + Claude Code |
-| **Use Cases** | Infrastructure, essential functions | Business logic, flexible features |
-| **Failure Handling** | Auto-retry, alerts | Log errors, manual intervention |
-| **Examples** | Heartbeat, message routing, logging | Meeting convening, task assignment |
+All message types use JSON schemas from `doc/rule/templates/schemas/`:
+- `message_envelope.schema.json` - Message envelope structure
+- `command.schema.json` - Command payload structure
+- `ack.schema.json` - Acknowledgment structure
+- `task_dag.schema.json` - DAG structure
+- `delivery_log_entry.schema.json` - Delivery log entries
+- `status_heartbeat.schema.json` - Agent heartbeat status
+- `plan_status.schema.json` - Plan status aggregation
 
-**Rule of thumb**: Use core programs for anything that must always work; use skills for complex, LLM-reasoning-dependent tasks.
+Schema validation can be enabled/disabled via config.
 
-### Six-Layer Traceability
+### Atomic File Operations
 
-All agent actions are traceable through:
-1. **Activity** (logs/activity.jsonl) - What the agent did
-2. **Decision** (logs/decision_log.jsonl) - Why the agent made decisions
-3. **Execution** (workspace/task_xxx/trace/execution_trace.jsonl) - How the agent executed
-4. **Input** (workspace/task_xxx/trace/input_trace.json) - What inputs were used
-5. **Output** (workspace/task_xxx/trace/output_trace.json) - What outputs were produced
-6. **Error** (logs/error_chains.jsonl) - Complete error chains
+The system uses atomic file operations for reliability:
+- `atomic_write_json()` - Write with rename for atomicity
+- `atomic_copy()` - Copy with temp file + rename
+- `atomic_move()` - Move with temp file + rename
+- `atomic_rename()` - Rename with temp file
 
-### Anti-Hallucination: INTERNAL vs EXTERNAL Knowledge
+This prevents partial reads during concurrent access.
 
-When agents need information, they classify as:
-- **INTERNAL**: General knowledge (programming, APIs) - generate from LLM
-- **EXTERNAL**: Business/user-specific (credentials, data) - must wait for user input
+### Command Handler Interface
 
-Agents block when lacking EXTERNAL knowledge, wake when inputs become available.
-
-### Unified Task Template
-
-Use the unified task template for assigning work to agents. See `doc/code/file_type/unified_task_template.md`:
-- **Artifacts**: Abstract representation of work items (code, docs, data)
-- **Artifact Roles**: source (to process), reference (consult), specification (follow)
-- **Artifact Types**: source_code, document, data, config, etc.
-
----
-
-## Creating New Agents and Skills
-
-### Creating a New Agent
-
-```bash
-# 1. Copy template to create new agent
-cp -r template/agent_template/ system/agents/agent_xxx_name/
-
-# 2. Edit agent profile
-vim system/agents/agent_xxx_name/agent_profile.json
-
-# 3. (Optional) Add custom skills
-mkdir -p system/agents/agent_xxx_name/skills/skill_yyy/
-
-# 4. Start the agent
-cd system/agents/agent_xxx_name/
-python core/main.py
-```
-
-**Minimum agent_profile.json**:
-```json
-{
-  "agent_id": "agent_xxx_name",
-  "agent_name": "Human-readable name",
-  "lifecycle": {
-    "idle_timeout_seconds": 1800,
-    "enable_dormant": true
-  },
-  "heartbeat": {
-    "interval_seconds": 10
-  },
-  "visibility_list": {
-    "can_see": [],
-    "can_be_seen_by": []
-  }
-}
-```
-
-### Creating Skills
-
-**Option 1: Stable Skill (scripts/handler.py)** - Use for critical functionality
+Custom command handlers implement `CommandHandler` from `agenttalk.heartbeat.handlers`:
 
 ```python
-# skills/skill_xxx/scripts/handler.py
-import sys
-import json
+from agenttalk.heartbeat.handlers import CommandHandler, CommandResult
 
-def main():
-    message = json.loads(sys.argv[1])
-    # Process message
-    return {"success": True, "result": "..."}
-
-if __name__ == "__main__":
-    result = main()
-    print(json.dumps(result, ensure_ascii=False))
+class MyHandler(CommandHandler):
+    def handle_command(self, envelope: dict, command: dict, context: dict) -> CommandResult:
+        # Process command
+        return CommandResult(ok=True, details={"output": "..."})
 ```
 
-**Option 2: Flexible Skill (skill.md)** - Use for business logic
+Pass to heartbeat via `--handler-module my_handler` (module must expose `handler`).
 
-```markdown
----
-skill_name: skill_xxx
-skill_version: 1.0.0
-skill_type: business_logic
-description: Skill description
-inputs:
-  - name: message
-    type: object
-outputs:
-  - name: result
-    type: object
----
+### Task States
 
-# Skill Documentation
+Tasks progress through states:
+- `PENDING` - Waiting for dependencies
+- `RUNNING` - Currently executing
+- `BLOCKED_WAITING_INPUT` - Missing required inputs
+- `BLOCKED_WAITING_HUMAN` - Waiting for human intervention
+- `COMPLETED` - Finished successfully
+- `FAILED` - Execution failed
 
-Detailed skill description...
-```
+States are tracked via `task_state_*.json` files in agent outbox.
 
----
+### Deadletter Handling
 
-## Design Patterns
-
-### DO: Use scripts/handler.py for essential functions
-- Stable, reliable, debuggable
-- Direct Python execution
-- Performance controlled
-
-### DON'T: Use skill.md for critical infrastructure
-- Depends on external Claude Code calls
-- May fail intermittently
-- Hard to debug
-
-### DO: Block when waiting for inputs
-```python
-if not has_inputs():
-    state_manager.update_state({"status": "BLOCKED_WAITING_INPUT"})
-    wait_for_wakeup()
-```
-
-### DON'T: Spin or hallucinate when lacking inputs
-```python
-# WRONG: Wastes resources
-while not has_inputs():
-    time.sleep(1)
-
-# WRONG: Generates fake data
-if not has_inputs():
-    data = generate_fake_data()  # Hallucination!
-```
-
----
-
-## Troubleshooting
-
-### Agent Not Responding
-
-```bash
-# Check if heartbeat is running
-ps aux | grep python | grep main.py
-
-# Check logs
-tail -100 logs/activity.jsonl
-
-# Check for errors
-grep ERROR logs/activity.jsonl
-```
-
-### Messages Not Processed
-
-```bash
-# Check inbox
-ls inbox/*.json
-
-# Check processing status
-ls inbox/.pending/ inbox/.processed/
-
-# Check skill dispatcher logs
-grep "skill_" logs/activity.jsonl | tail -20
-```
-
-### Agent Stuck in DORMANT
-
-```bash
-# Send wakeup signal (see "Wake Up a Dormant Agent" above)
-
-# Check wakeup listener is running
-ps aux | grep wakeup_listener
-
-# Verify inbox/ is writable
-touch inbox/test.txt && rm inbox/test.txt
-```
+Failed messages are moved to `system_runtime/deadletter/<plan_id>/` with:
+- Original file name and message_id
+- Error code and message
+- Suggested next action
+- Retriable flag
 
 ---
 
 ## Key Documentation
 
-### Architecture and Design
-- `doc/agent_architecture_v2.md` - Core program vs skills architecture
-- `doc/agent_lifecycle_management.md` - Agent lifecycle and dormancy
-- `doc/core_program_guide.md` - Core program usage guide
-- `doc/code/normal/visibility_list.md` - Agent visibility lists
-- `doc/code/normal/task_graph.md` - Task graph structure (deliverable dependencies)
+### System Rules (PR-001 to PR-026)
+Located in `doc/rule/`:
+- **PR-001**: Inbox/outbox file transfer (only interaction method)
+- **PR-002**: File transfer defined by task
+- **PR-003**: Agent folder isolation (security boundary)
+- **PR-007**: Unified execute command
+- **PR-008**: Agent folder structure
+- **PR-009**: Task distribution mechanism
+- **PR-017**: Logging and traceability
+- **PR-024**: Shared folder monitoring (system routing)
+- **PR-025**: Agent lifecycle and plan monitoring
 
-### File Types and Messaging
-- `doc/code/file_type/README.md` - Complete file type system documentation
-- `doc/code/file_type/unified_task_template.md` - **Most important**: How to assign tasks
-- `doc/code/file_type/message_types.md` - All message type definitions
+See `doc/rule/README.md` for complete index.
 
-### Agent Roles and Workflows
-- `doc/code/general_manager/README.md` - GM workflow overview
-- `doc/code/general_manager_workflow.md` - Detailed GM workflow
+### DAG Specification
+- `doc/DAG/semantics.md` - DAG execution semantics (task state machine, input matching, failure propagation)
+- `doc/DAG/roadmap.md` - Implementation roadmap
+- `doc/DAG/schemas/task_dag.v1.1.schema.json` - DAG schema
+
+### Templates and Schemas
+- `doc/rule/templates/` - Reusable JSON templates
+- `doc/rule/templates/schemas/` - JSON schemas for all message types
+
+---
+
+## Common Tasks
+
+### Adding a New Message Type
+
+1. Create schema in `doc/rule/templates/schemas/<type>.schema.json`
+2. Create template in `doc/rule/templates/<type>.json`
+3. Update `SchemaRegistry` to include new schema
+4. Add handler in router or heartbeat as needed
+
+### Debugging Message Flow
+
+```bash
+# Check system runtime for delivery logs
+cat system_runtime/plans/<plan_id>/deliveries.jsonl | jq .
+
+# Check agent outbox for produced messages
+ls agents/<agent_id>/outbox/<plan_id>/
+
+# Check agent inbox for pending messages
+ls agents/<agent_id>/inbox/<plan_id>/.pending/
+
+# Check for deadlettered messages
+ls system_runtime/deadletter/<plan_id>/
+```
+
+### Running End-to-End Test
+
+```bash
+# 1. Start router (in background)
+python agenttalk_router.py --agents-root agents --system-runtime system_runtime &
+
+# 2. Start agent heartbeat (in background)
+python agenttalk_heartbeat.py --agent-root agents/agent_xxx &
+
+# 3. Place command envelope in agent's inbox
+# (Create appropriate command envelope file)
+
+# 4. Check deliveries.jsonl for routing results
+cat system_runtime/plans/<plan_id>/deliveries.jsonl
+```

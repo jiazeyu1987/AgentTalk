@@ -11,6 +11,11 @@
 - 每个Agent只读写自己的文件夹
 - 所有交互只通过文件传递
 
+路由执行口径（与通用流程一致）：
+- 系统路由程序在执行层面只依赖“当前阶段的 DAG”（Meta-DAG 或 Business-DAG）进行投递。
+- 产物投递：按 `nodes[].outputs[].deliver_to`（或 `routing_rules` 兜底）计算目标。
+- 命令投递（方案B）：按 `nodes[].assigned_agent_id` 将命令消息 `cmd_*.msg.json`（envelope `type=command`）投递给对应执行者；链路唯一ID为 envelope 的 `message_id`。
+
 ---
 
 ## 1. DAG 文件版本与向后兼容
@@ -57,7 +62,7 @@
 系统监控对每个task按以下判定更新 `plan_status`：
 
 1. `PENDING` → `READY`：所有 `depends_on` 的状态满足（见 4. 失败传播），且输入可满足（见 3. 输入匹配）
-2. `READY` → `RUNNING`：执行Agent开始处理对应 `cmd_*.json`（可由Agent写 `task_state` 或由ACK/日志推断）
+2. `READY` → `RUNNING`：执行Agent开始处理对应命令消息 `cmd_*.msg.json`（可由Agent写 `task_state` 或由ACK/日志推断）
 3. `RUNNING` → `BLOCKED_WAITING_INPUT`：执行Agent发现输入缺失且 `wait_for_inputs=true`
 4. `RUNNING` → `FAILED`：命令执行失败（含超时，见PR-010）
 5. `RUNNING` → `COMPLETED`：任务输出按预期产生（至少一个 `outputs[].name` 对应的消息/文件出现且通过完整性校验），并触发投递/归档
@@ -95,12 +100,16 @@ v1.0 的 `required_inputs`（文件名列表）在大项目里会出现多版本
 推荐系统与Agent至少支持以下 selector 类型：
 
 1. `by_file_name`：精确文件名
+   - 必填字段：`value`
    - 示例：`{"type":"by_file_name","value":"requirements.md"}`
 2. `by_glob`：通配匹配（glob语义）
+   - 必填字段：`value`
    - 示例：`{"type":"by_glob","value":"feedback_*.json"}`
 3. `by_output_name`：按 DAG 输出名匹配（语义上等价于“来自某上游输出”）
+   - 必填字段：`value`
    - 示例：`{"type":"by_output_name","value":"database_schema.json"}`
 4. `by_message_type`：按消息信封 `type/subtype` 匹配（需要 envelope）
+   - 必填字段：`type_value`、`subtype_value`
    - 示例：`{"type":"by_message_type","type_value":"artifact","subtype_value":"db_schema"}`
 
 ### 3.3 pick_policy（必须）
@@ -110,6 +119,7 @@ v1.0 的 `required_inputs`（文件名列表）在大项目里会出现多版本
 - `latest_by_delivered_at`：选择 delivered_at 最新的
 - `first_seen`：选择最先到达的
 - `by_sha256`：显式指定 `sha256`（需要 selector 提供 allowed_hashes）
+- `highest_score`：选择评分最高的（需要关联验收/评分证据）
 
 如果无法唯一化（缺 delivered_at、缺 hash、或多份并列），则：
 - task 进入 `BLOCKED_WAITING_HUMAN`
@@ -167,7 +177,7 @@ task 的输入满足条件：
 - `deliverable`：是否最终交付物候选
 - `idempotency_key`：幂等键（必须）
 - `versioning`：
-  - `mode`：`immutable_by_message_id | keep_latest | reject_on_change`
+  - `mode`：`immutable_by_message_id | keep_latest | reject_on_change | overwrite_by_name | semver_tagged`
   - `conflict_policy`：`accept_duplicate_if_same_hash | deadletter_on_change`
 
 ### 5.2 语义（必须）
@@ -178,6 +188,8 @@ task 的输入满足条件：
   - 允许重复出现但应去重投递（记录 `SKIPPED_DUPLICATE`）
 - 如果内容哈希不同：
   - 若 `versioning.mode=keep_latest`：可保留最新，并记录替换（仍需审计）
+  - 若 `versioning.mode=overwrite_by_name`：允许按输出名覆盖，但必须记录替换审计
+  - 若 `versioning.mode=semver_tagged`：按语义化版本保留多版本（需提供可解析版本标签）
   - 否则：进入 DLQ + alert（避免“同键不同物”破坏可追溯）
 
 建议默认：`reject_on_change + deadletter_on_change`（更安全，适合大项目）。
@@ -226,6 +238,50 @@ plan级门禁由 `plan_manifest.policies.release_gates_required[]` 声明；
 ---
 
 ## 8. 与 doc/rule 的关系
+
+## 9. 命令文件绑定语义（Command↔Task Binding）
+
+本节用于消除一个常见实现歧义：DAG 里声明了 `assigned_agent_id`，但“对应 task 的命令消息 cmd_*.msg.json”从哪里来、如何绑定、如何避免旧命令误投递，需要统一。
+
+### 9.1 命令最小绑定字段（MVP 强制）
+
+任意会被系统路由程序投递的命令消息 `cmd_*.msg.json`，必须包含：
+- `plan_id`
+- `task_id`
+- `command_id`
+- `command_seq`
+- `dag_ref.sha256`
+-（推荐）`idempotency_key = <plan_id>:<task_id>:<command_id>`
+
+说明：
+- `payload.command.task_id` 是命令与 DAG 节点的唯一绑定键；缺失 `task_id` 的命令消息无法被 DAG 驱动投递，应进入 DLQ + alert。
+
+### 9.2 dag_ref（MVP 必须：防止“旧命令跑在新DAG上”）
+
+命令对象（`payload.command`）必须包含：
+```json
+{
+  "dag_ref": {
+    "sha256": "..."
+  }
+}
+```
+
+Router 在投递命令前校验：
+- 若 `payload.command.dag_ref.sha256` 与当前 `system_runtime/plans/<plan_id>/active_dag_ref.json.task_dag_sha256` 不一致：不得投递，进入 DLQ + alert（COMMAND_DAG_MISMATCH）。
+
+### 9.3 Router 对命令的投递算法（无歧义版）
+
+对每个待投递命令消息 `cmd_*.msg.json`：
+1) 解析 `message_id/plan_id` 并通过 message_envelope schema 校验（`type=command`）
+2) 读取该 plan 的“当前阶段 DAG”（`task_dag.json`）
+3) 从 `payload.command.task_id` 在 DAG 的 `nodes[]` 中找到节点
+4) 取 `assigned_agent_id`，把命令消息投递到该 agent 的 `inbox/<plan_id>/`
+5) 记录 deliveries.jsonl，并对 `(message_id + sha256)` 去重（`idempotency_key` 仅用于审计与可读关联）
+
+补充（与 Router 口径一致）：主去重键应为 `message_id + sha256`；`idempotency_key` 只用于审计与人类可读关联，避免“双口径去重”。
+
+命令不允许自行决定“投递给谁”；跨 Agent 的投递目标只能来自 DAG（见 PR-002/PR-024）。
 
 本文件是“实现级语义”的集中说明；落地到规则体系时，应将 v1.1 字段同步到：
 - `doc/rule/templates/task_dag.json` 与其 schema

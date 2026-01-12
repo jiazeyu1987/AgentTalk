@@ -47,13 +47,31 @@
     "timeout_default_seconds": 3600,
     "on_blocked": "alert",
     "on_failed": "alert",
+    "timeouts": {
+      "dag_review": {
+        "timeout_seconds": 3600,
+        "default_decision": "APPROVE",
+        "notes": "If timeout happens, coordinator must still record missing reviewers and emit alert. Decision policy should be explicit and auditable."
+      },
+      "artifact_validation": {
+        "timeout_seconds": 7200,
+        "default_decision": "REJECT",
+        "notes": "Validation evidence missing at timeout is treated as not ready by default; override explicitly if your org accepts risk."
+      },
+      "release_gate": {
+        "timeout_seconds": 7200,
+        "default_decision": "REJECT",
+        "notes": "Release gates should default to fail-closed; override explicitly if you accept risk."
+      }
+    },
     "release_gates_required": [
       "build_validation_result.json",
       "deploy_validation_result.json",
       "smoke_test_result.json",
       "e2e_test_result.json",
       "security_scan_result.json",
-      "release_manifest.json"
+      "release_manifest.json",
+      "decision_record.json"
     ]
   }
 }

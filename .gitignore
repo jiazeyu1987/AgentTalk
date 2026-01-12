@@ -1,0 +1,138 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# OS-specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Runtime directories (AgentTalk specific)
+# Agent working directories with inbox/outbox/workspace
+agents/
+system_runtime/
+
+# Runtime state files
+*.pid
+*.lock
+.runtime/
+
+# Logs
+*.log
+logs/
+*.jsonl
+
+# Temporary files
+*.tmp
+*.tmp.*
+*.bak
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ruff
+.ruff_cache/
+
+# Type checking
+.pytype/
+.pyi
+
+# Build artifacts
+*.wasm
+*.js
+*.map
+
+# Package manager
+poetry.lock
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Claude Code specific
+.claude/cache/
+
+# Case/example outputs (if running examples)
+doc/case/**/output/
+doc/case/**/workspace/
+doc/case/**/inbox/
+doc/case/**/outbox/

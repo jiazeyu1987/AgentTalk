@@ -11,9 +11,9 @@
     "skipped": 0
   },
   "blocked_summary": {
-    "WAITING_INPUT": 1,
-    "WAITING_REVIEW": 0,
-    "WAITING_HUMAN": 0
+    "INPUT": 1,
+    "REVIEW": 0,
+    "HUMAN": 0
   },
   "tasks": [
     {

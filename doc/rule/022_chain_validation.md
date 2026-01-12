@@ -44,6 +44,8 @@ Agent A → 产生输出 → Agent B → 验证失败 → 发送[重新执行]�
   "schema_version": "1.0",
   "command_id": "cmd_reexecute_001",
   "plan_id": "plan_develop_ecommerce",
+  "task_id": "task_001",
+  "command_seq": 2,
   "idempotency_key": "plan_develop_ecommerce:task_001:reexecute",
   "original_task_id": "task_001",
   "original_agent": "agent_product_manager",

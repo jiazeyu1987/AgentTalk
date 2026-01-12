@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenttalk.local/schemas/input_index.schema.json",
+  "title": "InputIndex",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "plan_id", "agent_id", "updated_at", "entries"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "agent_id": { "type": "string", "minLength": 1 },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["message_id", "task_id", "output_name", "received_at", "files"],
+        "properties": {
+          "message_id": { "type": "string", "minLength": 1 },
+          "task_id": { "type": "string", "minLength": 1 },
+          "output_name": { "type": "string", "minLength": 1 },
+          "received_at": { "type": "string", "format": "date-time" },
+          "files": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": ["path", "sha256", "stored_at"],
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "sha256": { "type": "string", "minLength": 1 },
+                "stored_at": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

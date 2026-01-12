@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenttalk.local/schemas/heartbeat_config.schema.json",
+  "title": "HeartbeatConfig",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "agent_id", "poll_interval_seconds"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "agent_id": { "type": "string", "minLength": 1 },
+    "poll_interval_seconds": { "type": "integer", "minimum": 1 },
+    "max_new_messages_per_tick": { "type": ["integer", "null"], "minimum": 1 },
+    "max_resume_messages_per_tick": { "type": ["integer", "null"], "minimum": 1 },
+    "plans": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "properties": {
+        "scan_mode": { "type": ["string", "null"], "enum": ["auto", "allowlist_only", null] },
+        "allowlist": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "paths": { "type": ["object", "null"], "additionalProperties": true },
+    "schema_validation": { "type": ["object", "null"], "additionalProperties": true }
+  }
+}

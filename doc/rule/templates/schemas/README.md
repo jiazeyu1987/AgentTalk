@@ -11,10 +11,17 @@
 - `command.schema.json`
 - `task_dag.schema.json`
 - `plan_manifest.schema.json`
+- `plan_status.schema.json`
 - `ack.schema.json`
 - `alert.schema.json`
 - `deadletter_entry.schema.json`
 - `delivery_log_entry.schema.json`
+- `active_dag_ref.schema.json`
+- `decision_record.schema.json`
+- `task_state.schema.json`
+- `status_heartbeat.schema.json`
+- `heartbeat_config.schema.json`
+- `input_index.schema.json`
 - `dag_review_result.schema.json`
 - `artifact_validation_result.schema.json`
 - `build_validation_result.schema.json`

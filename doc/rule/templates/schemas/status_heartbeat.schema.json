@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenttalk.local/schemas/status_heartbeat.schema.json",
+  "title": "StatusHeartbeat",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "agent_id", "last_heartbeat", "health"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "agent_id": { "type": "string", "minLength": 1 },
+    "last_heartbeat": { "type": "string", "format": "date-time" },
+    "health": { "type": "string", "enum": ["HEALTHY", "WARNING", "CRITICAL"] },
+    "status": { "type": ["string", "null"] },
+    "uptime_seconds": { "type": ["integer", "null"], "minimum": 0 },
+    "current_plan_ids": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1 } },
+    "current_task_ids": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1 } },
+    "resource_usage": { "type": ["object", "null"], "additionalProperties": true },
+    "last_error": { "type": ["string", "null"] }
+  }
+}
